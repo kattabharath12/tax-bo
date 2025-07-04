@@ -43,7 +43,7 @@ function Dashboard() {
     formData.append('file', file);
 
     try {
-      const response = await api.post('/documents/upload', formData, {
+      await api.post('/documents/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
