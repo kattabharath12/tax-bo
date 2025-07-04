@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 function TaxForm({ onSuccess }) {
-  const { user } = useAuth();
   const [formData, setFormData] = useState({
     tax_year: 2024,
     income: '',
