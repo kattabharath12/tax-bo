@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 function TaxForm({ onSuccess }) {
