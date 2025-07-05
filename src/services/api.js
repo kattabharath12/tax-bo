@@ -1,7 +1,6 @@
 import axios from 'axios';
 
 const API_BASE_URL = 'https://tax-box-production.up.railway.app';
-
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
