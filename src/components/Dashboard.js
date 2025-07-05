@@ -56,6 +56,29 @@ function Dashboard() {
     }
   };
 
+  const downloadTaxReturn = async (taxReturnId) => {
+    try {
+      const response = await api.get(`/tax-returns/${taxReturnId}/export/json`, {
+        responseType: 'blob'
+      });
+      
+      const blob = new Blob([response.data], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tax_return_${taxReturnId}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      alert('Tax return downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading tax return:', error);
+      alert('Failed to download tax return');
+    }
+  };
+
   return (
     <div className="container">
       {/* Header */}
@@ -112,7 +135,7 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Quick Actions - Only show if not in tax form or upload mode */}
+      {/* Quick Actions */}
       {!showTaxForm && !showUploadForm && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="card text-center">
@@ -150,7 +173,7 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Tax Returns History - Only show if not in forms */}
+      {/* Tax Returns History */}
       {!showTaxForm && !showUploadForm && (
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -219,7 +242,7 @@ function Dashboard() {
                     )}
                   </div>
                   
-                  <div style={{ display: 'flex', gap: '1rem' }}>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                     <button className="btn btn-secondary">
                       View Details
                     </button>
@@ -228,6 +251,13 @@ function Dashboard() {
                         Continue Filing
                       </button>
                     )}
+                    <button 
+                      onClick={() => downloadTaxReturn(taxReturn.id)}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.9rem' }}
+                    >
+                      📥 Download JSON
+                    </button>
                   </div>
                   
                   <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '1rem' }}>
