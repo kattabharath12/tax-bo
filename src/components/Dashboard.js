@@ -36,6 +36,46 @@ function Dashboard() {
     }
   };
 
+  // Show loading spinner while data is being fetched
+  if (loading) {
+    return (
+      <div style={{ 
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)'
+      }}>
+        <div style={{
+          background: 'white',
+          borderRadius: '20px',
+          padding: '3rem',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '4px solid #e2e8f0',
+            borderTop: '4px solid #667eea',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 1rem'
+          }}></div>
+          <p style={{ color: '#64748b', fontSize: '1.1rem', margin: 0 }}>
+            Loading your dashboard...
+          </p>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      </div>
+    );
+  }
+
   const handleLogout = () => {
     logout();
   };
