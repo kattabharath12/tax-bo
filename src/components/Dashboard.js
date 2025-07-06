@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 
 export default function Dashboard() {
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
   const handleDrag = (e) => {
