@@ -150,12 +150,7 @@ export default function LoginForm() {
     boxSizing: 'border-box'
   };
 
-  const inputFocusStyle = {
-    ...inputStyle,
-    borderColor: '#667eea',
-    backgroundColor: '#ffffff',
-    boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)'
-  };
+
 
   const iconStyle = {
     position: 'absolute',
