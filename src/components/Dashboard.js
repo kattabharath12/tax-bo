@@ -1,7 +1,26 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const [dragActive, setDragActive] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const { logout, user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // Navigation will be handled by App.js
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  const handleFileUpload = (files) => {
+    const fileArray = Array.from(files);
+    setUploadedFiles(prev => [...prev, ...fileArray]);
+    console.log('Files uploaded:', fileArray);
+    // Add your file upload logic here
+  };
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -18,9 +37,10 @@ export default function Dashboard() {
     e.stopPropagation();
     setDragActive(false);
     
-    const files = [...e.dataTransfer.files];
-    console.log('Files dropped:', files);
-    // Handle file upload logic here
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files);
+    }
   };
 
   const containerStyle = {
@@ -257,14 +277,22 @@ export default function Dashboard() {
         </div>
         
         <nav style={navStyle}>
-          <button style={navButtonStyle} className="nav-button">
+          <button 
+            style={navButtonStyle} 
+            className="nav-button"
+            onClick={() => window.location.reload()}
+          >
             <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
               <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
             </svg>
             Dashboard
           </button>
           
-          <button style={logoutButtonStyle} className="logout-button">
+          <button 
+            style={logoutButtonStyle} 
+            className="logout-button"
+            onClick={handleLogout}
+          >
             <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd"/>
             </svg>
@@ -278,7 +306,7 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <section style={welcomeStyle}>
           <h1 style={welcomeTitleStyle}>
-            <span>Welcome back, bharath!</span>
+            <span>Welcome back, {user?.fullName || user?.name || 'bharath'}!</span>
             <span style={{fontSize: '32px'}}>🎉</span>
           </h1>
           <p style={welcomeSubtitleStyle}>
@@ -331,8 +359,63 @@ export default function Dashboard() {
             multiple 
             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
             style={{display: 'none'}}
-            onChange={(e) => console.log('Files selected:', e.target.files)}
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                handleFileUpload(e.target.files);
+              }
+            }}
           />
+
+          {/* Show uploaded files */}
+          {uploadedFiles.length > 0 && (
+            <div style={{marginTop: '24px'}}>
+              <h3 style={{fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '12px'}}>
+                Uploaded Files:
+              </h3>
+              <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                {uploadedFiles.map((file, index) => (
+                  <div key={index} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '12px',
+                    backgroundColor: '#f0f9ff',
+                    border: '1px solid #bae6fd',
+                    borderRadius: '8px'
+                  }}>
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="#0ea5e9">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
+                    </svg>
+                    <div>
+                      <p style={{fontSize: '14px', fontWeight: '500', color: '#0c4a6e', margin: 0}}>
+                        {file.name}
+                      </p>
+                      <p style={{fontSize: '12px', color: '#64748b', margin: 0}}>
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                      }}
+                      style={{
+                        marginLeft: 'auto',
+                        background: 'none',
+                        border: 'none',
+                        color: '#ef4444',
+                        cursor: 'pointer',
+                        padding: '4px'
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* AI Feature Highlight */}
           <div style={aiFeatureStyle}>
