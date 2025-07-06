@@ -1,469 +1,473 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import TaxForm from './TaxForm';
+import api from '../services/api';
 
-export default function Dashboard() {
-  const [dragActive, setDragActive] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const { logout, user } = useAuth();
+function Dashboard() {
+  const { user, logout } = useAuth();
+  const [taxReturns, setTaxReturns] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showTaxForm, setShowTaxForm] = useState(false);
+  const [showUploadForm, setShowUploadForm] = useState(false);
 
-  const handleLogout = async () => {
+  useEffect(() => {
+    fetchTaxReturns();
+    fetchDocuments();
+  }, []);
+
+  const fetchTaxReturns = async () => {
     try {
-      await logout();
-      // Navigation will be handled by App.js
+      const response = await api.get('/tax-returns');
+      setTaxReturns(response.data);
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('Error fetching tax returns:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleFileUpload = (files) => {
-    const fileArray = Array.from(files);
-    setUploadedFiles(prev => [...prev, ...fileArray]);
-    console.log('Files uploaded:', fileArray);
-    // Add your file upload logic here
-  };
-
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
+  const fetchDocuments = async () => {
+    try {
+      const response = await api.get('/documents');
+      setDocuments(response.data);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
     }
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      handleFileUpload(files);
+  const handleLogout = () => {
+    logout();
+  };
+
+  const handleTaxFormSuccess = (newTaxReturn) => {
+    setShowTaxForm(false);
+    fetchTaxReturns();
+    alert('Tax return filed successfully!');
+  };
+
+  const handleUploadDocument = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      await api.post('/documents/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      alert('Document uploaded successfully!');
+      setShowUploadForm(false);
+      fetchDocuments();
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      alert('Failed to upload document');
     }
   };
 
-  const containerStyle = {
-    minHeight: '100vh',
-    backgroundColor: '#f8fafc',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  const downloadTaxReturn = async (taxReturnId) => {
+    try {
+      const response = await api.get(`/tax-returns/${taxReturnId}/export/json`, {
+        responseType: 'blob'
+      });
+      
+      const blob = new Blob([response.data], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tax_return_${taxReturnId}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      alert('Tax return downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading tax return:', error);
+      alert('Failed to download tax return');
+    }
   };
 
-  const headerStyle = {
-    backgroundColor: 'white',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    padding: '16px 24px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: '1px solid #e2e8f0'
+  const applySuggestionsToForm = (document) => {
+    if (document.extracted_data) {
+      const data = document.extracted_data;
+      const income = data.wages || data.income || 0;
+      const withholdings = data.federal_tax || 0;
+      
+      alert(`Ready to apply data!\nIncome: $${income.toLocaleString()}\nWithholdings: $${withholdings.toLocaleString()}`);
+      setShowTaxForm(true);
+    }
   };
 
-  const logoStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px'
-  };
-
-  const logoIconStyle = {
-    width: '40px',
-    height: '40px',
-    background: 'linear-gradient(135deg, #667eea, #764ba2)',
-    borderRadius: '10px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  };
-
-  const logoTextStyle = {
-    fontSize: '20px',
-    fontWeight: '700',
-    color: '#1e293b'
-  };
-
-  const navStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '24px'
-  };
-
-  const navButtonStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 16px',
-    backgroundColor: '#f1f5f9',
-    border: 'none',
-    borderRadius: '8px',
-    color: '#475569',
-    fontSize: '14px',
-    fontWeight: '500',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease'
-  };
-
-  const logoutButtonStyle = {
-    ...navButtonStyle,
-    backgroundColor: '#fef2f2',
-    color: '#dc2626'
-  };
-
-  const mainStyle = {
-    padding: '32px 24px',
-    maxWidth: '1200px',
-    margin: '0 auto'
-  };
-
-  const welcomeStyle = {
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    padding: '32px',
-    marginBottom: '32px',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e2e8f0'
-  };
-
-  const welcomeTitleStyle = {
-    fontSize: '28px',
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px'
-  };
-
-  const welcomeSubtitleStyle = {
-    fontSize: '16px',
-    color: '#64748b',
-    marginBottom: '24px'
-  };
-
-  const uploadSectionStyle = {
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    padding: '32px',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-    border: '1px solid #e2e8f0'
-  };
-
-  const uploadTitleStyle = {
-    fontSize: '24px',
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px'
-  };
-
-  const uploadSubtitleStyle = {
-    fontSize: '14px',
-    color: '#64748b',
-    marginBottom: '24px'
-  };
-
-  const uploadAreaStyle = {
-    border: `2px dashed ${dragActive ? '#667eea' : '#cbd5e1'}`,
-    borderRadius: '12px',
-    padding: '48px 24px',
-    textAlign: 'center',
-    backgroundColor: dragActive ? '#f0f4ff' : '#f8fafc',
-    transition: 'all 0.3s ease',
-    cursor: 'pointer'
-  };
-
-  const uploadIconStyle = {
-    width: '64px',
-    height: '64px',
-    backgroundColor: '#667eea',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '0 auto 16px'
-  };
-
-  const uploadTextStyle = {
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#1e293b',
-    marginBottom: '8px'
-  };
-
-  const uploadHintStyle = {
-    fontSize: '14px',
-    color: '#64748b',
-    marginBottom: '16px'
-  };
-
-  const acceptedFormatsStyle = {
-    display: 'flex',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: '8px',
-    marginTop: '16px'
-  };
-
-  const formatTagStyle = {
-    padding: '4px 12px',
-    backgroundColor: '#e2e8f0',
-    borderRadius: '20px',
-    fontSize: '12px',
-    fontWeight: '500',
-    color: '#475569'
-  };
-
-  const aiFeatureStyle = {
-    backgroundColor: '#f0f9ff',
-    border: '1px solid #bae6fd',
-    borderRadius: '12px',
-    padding: '20px',
-    marginTop: '24px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px'
-  };
-
-  const aiIconStyle = {
-    width: '48px',
-    height: '48px',
-    backgroundColor: '#0ea5e9',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  };
-
-  const aiTextStyle = {
-    fontSize: '16px',
-    color: '#0c4a6e',
-    fontWeight: '500'
-  };
-
-  const footerStyle = {
-    textAlign: 'center',
-    padding: '32px 24px',
-    borderTop: '1px solid #e2e8f0',
-    backgroundColor: 'white',
-    marginTop: '48px'
-  };
-
-  const footerTextStyle = {
-    fontSize: '14px',
-    color: '#64748b',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px'
-  };
-
-  const brandStyle = {
-    fontWeight: '600',
-    color: '#667eea'
+  const viewDocumentDetails = async (documentId) => {
+    try {
+      const response = await api.get(`/debug/document/${documentId}`);
+      const data = response.data;
+      
+      const details = `Document: ${data.filename}\nStatus: ${data.processing_status}\nType: ${data.document_type || 'Unknown'}\nExtracted Data: ${JSON.stringify(data.extracted_data, null, 2)}`;
+      alert(details);
+    } catch (error) {
+      console.error('Error fetching document details:', error);
+      alert('Failed to fetch document details');
+    }
   };
 
   return (
-    <div style={containerStyle}>
-      {/* Header */}
-      <header style={headerStyle}>
-        <div style={logoStyle}>
-          <div style={logoIconStyle}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-              <path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/>
-            </svg>
+    <div style={{ 
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      minHeight: '100vh',
+      padding: '20px'
+    }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          borderRadius: '20px',
+          padding: '2rem',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+          color: 'white',
+          marginBottom: '2rem'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                Welcome back, {user?.full_name}! 🎉
+              </h1>
+              <p style={{ fontSize: '1.2rem', opacity: '0.9' }}>Your AI-powered tax assistant is ready!</p>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button 
+                onClick={() => setShowTaxForm(false)} 
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  borderRadius: '15px',
+                  padding: '12px 24px',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                🏠 Dashboard
+              </button>
+              <button 
+                onClick={handleLogout} 
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  borderRadius: '15px',
+                  padding: '12px 24px',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                👋 Logout
+              </button>
+            </div>
           </div>
-          <span style={logoTextStyle}>TaxBox.AI</span>
         </div>
-        
-        <nav style={navStyle}>
-          <button 
-            style={navButtonStyle} 
-            className="nav-button"
-            onClick={() => window.location.reload()}
-          >
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
-            </svg>
-            Dashboard
-          </button>
-          
-          <button 
-            style={logoutButtonStyle} 
-            className="logout-button"
-            onClick={handleLogout}
-          >
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd"/>
-            </svg>
-            Logout
-          </button>
-        </nav>
-      </header>
 
-      {/* Main Content */}
-      <main style={mainStyle}>
-        {/* Welcome Section */}
-        <section style={welcomeStyle}>
-          <h1 style={welcomeTitleStyle}>
-            <span>Welcome back, {user?.fullName || user?.name || 'bharath'}!</span>
-            <span style={{fontSize: '32px'}}>🎉</span>
-          </h1>
-          <p style={welcomeSubtitleStyle}>
-            Your AI-powered tax assistant is ready to work!
-          </p>
-        </section>
+        {/* Tax Form */}
+        {showTaxForm && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.9)',
+            borderRadius: '20px',
+            padding: '2rem',
+            marginBottom: '2rem'
+          }}>
+            <TaxForm onSuccess={handleTaxFormSuccess} />
+          </div>
+        )}
 
-        {/* Upload Section */}
-        <section style={uploadSectionStyle}>
-          <h2 style={uploadTitleStyle}>
-            <svg width="24" height="24" viewBox="0 0 20 20" fill="currentColor" style={{color: '#667eea'}}>
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd"/>
-            </svg>
-            Upload Tax Documents
-          </h2>
-          <p style={uploadSubtitleStyle}>
-            Choose your document and let our AI extract your tax data automatically
-          </p>
+        {/* Upload Form */}
+        {showUploadForm && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.9)',
+            borderRadius: '20px',
+            padding: '2rem',
+            marginBottom: '2rem',
+            textAlign: 'center'
+          }}>
+            <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>📤 Upload Tax Documents</h2>
+            <label style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              border: 'none',
+              borderRadius: '20px',
+              padding: '15px 30px',
+              color: 'white',
+              fontSize: '1.1rem',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'inline-block'
+            }}>
+              🎯 Choose Your Document
+              <input
+                type="file"
+                onChange={handleUploadDocument}
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
+                style={{ display: 'none' }}
+              />
+            </label>
+            <p style={{ marginTop: '1rem', color: '#666' }}>
+              📋 Accepted: PDF, JPG, PNG, DOC, DOCX, TXT
+            </p>
+            <button 
+              onClick={() => setShowUploadForm(false)} 
+              style={{
+                background: 'rgba(102, 126, 234, 0.1)',
+                border: '2px solid #667eea',
+                borderRadius: '15px',
+                padding: '10px 20px',
+                color: '#667eea',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                marginTop: '1rem'
+              }}
+            >
+              ❌ Cancel
+            </button>
+          </div>
+        )}
 
-          <div 
-            style={uploadAreaStyle}
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            onClick={() => document.getElementById('file-input').click()}
-            className="upload-area"
-          >
-            <div style={uploadIconStyle}>
-              <svg width="32" height="32" viewBox="0 0 20 20" fill="white">
-                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd"/>
-              </svg>
+        {/* Quick Actions */}
+        {!showTaxForm && !showUploadForm && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+            <div 
+              style={{
+                background: 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+                borderRadius: '20px',
+                padding: '2rem',
+                textAlign: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 15px 35px rgba(0,0,0,0.1)'
+              }}
+              onClick={() => setShowTaxForm(true)}
+            >
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📝</div>
+              <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333' }}>File New Return</h3>
+              <p style={{ marginBottom: '1.5rem', color: '#666' }}>Start your 2024 tax return</p>
             </div>
             
-            <h3 style={uploadTextStyle}>Choose Your Document</h3>
-            <p style={uploadHintStyle}>
-              Drag & drop your files here, or click to browse
-            </p>
+            <div 
+              style={{
+                background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+                borderRadius: '20px',
+                padding: '2rem',
+                textAlign: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 15px 35px rgba(0,0,0,0.1)'
+              }}
+              onClick={() => setShowUploadForm(true)}
+            >
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
+              <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333' }}>Upload Documents</h3>
+              <p style={{ marginBottom: '1.5rem', color: '#666' }}>Upload W-2, 1099 forms</p>
+            </div>
             
-            <div style={acceptedFormatsStyle}>
-              {['PDF', 'JPG', 'PNG', 'DOC', 'DOCX', 'TXT'].map(format => (
-                <span key={format} style={formatTagStyle}>{format}</span>
-              ))}
+            <div 
+              style={{
+                background: 'linear-gradient(135deg, #d299c2 0%, #fef9d7 100%)',
+                borderRadius: '20px',
+                padding: '2rem',
+                textAlign: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 15px 35px rgba(0,0,0,0.1)'
+              }}
+              onClick={() => setShowUploadForm(true)}
+            >
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🤖</div>
+              <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333' }}>AI Processing</h3>
+              <p style={{ marginBottom: '1.5rem', color: '#666' }}>Auto-extract tax data</p>
             </div>
           </div>
+        )}
 
-          <input 
-            id="file-input"
-            type="file" 
-            multiple 
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
-            style={{display: 'none'}}
-            onChange={(e) => {
-              if (e.target.files && e.target.files.length > 0) {
-                handleFileUpload(e.target.files);
-              }
-            }}
-          />
-
-          {/* Show uploaded files */}
-          {uploadedFiles.length > 0 && (
-            <div style={{marginTop: '24px'}}>
-              <h3 style={{fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '12px'}}>
-                Uploaded Files:
-              </h3>
-              <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
-                {uploadedFiles.map((file, index) => (
-                  <div key={index} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '12px',
-                    backgroundColor: '#f0f9ff',
-                    border: '1px solid #bae6fd',
-                    borderRadius: '8px'
+        {/* Documents Section */}
+        {!showTaxForm && !showUploadForm && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.9)',
+            borderRadius: '20px',
+            padding: '2rem',
+            marginBottom: '2rem'
+          }}>
+            <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>📋 Your Documents</h2>
+            
+            {documents.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📭</div>
+                <p style={{ marginBottom: '2rem', fontSize: '1.2rem', color: '#666' }}>No documents uploaded yet.</p>
+                <button 
+                  onClick={() => setShowUploadForm(true)} 
+                  style={{
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    border: 'none',
+                    borderRadius: '20px',
+                    padding: '15px 30px',
+                    color: 'white',
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🚀 Upload Your First Document
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem' }}>
+                {documents.map((doc) => (
+                  <div key={doc.id} style={{
+                    background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+                    borderRadius: '20px',
+                    padding: '1.5rem',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
                   }}>
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="#0ea5e9">
-                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"/>
-                    </svg>
-                    <div>
-                      <p style={{fontSize: '14px', fontWeight: '500', color: '#0c4a6e', margin: 0}}>
-                        {file.name}
-                      </p>
-                      <p style={{fontSize: '12px', color: '#64748b', margin: 0}}>
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h3 style={{ fontSize: '1.2rem', color: '#333', fontWeight: 'bold' }}>📄 {doc.filename}</h3>
+                      <span 
+                        style={{ 
+                          padding: '6px 12px', 
+                          borderRadius: '20px', 
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          background: doc.processing_status === 'completed' ? '#4ade80' : 
+                                     doc.processing_status === 'processing' ? '#fbbf24' : '#ef4444',
+                          color: 'white'
+                        }}
+                      >
+                        {doc.processing_status === 'completed' ? '✅ COMPLETED' : 
+                         doc.processing_status === 'processing' ? '⏳ PROCESSING' : '❌ FAILED'}
+                      </span>
                     </div>
-                    <button
-                      onClick={() => {
-                        setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-                      }}
-                      style={{
-                        marginLeft: 'auto',
-                        background: 'none',
-                        border: 'none',
-                        color: '#ef4444',
-                        cursor: 'pointer',
-                        padding: '4px'
-                      }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
-                      </svg>
-                    </button>
+                    
+                    <div style={{ marginBottom: '1rem', color: '#666' }}>
+                      <p><strong>Type:</strong> {doc.document_type ? doc.document_type.toUpperCase() : 'Unknown'}</p>
+                      <p><strong>Uploaded:</strong> {new Date(doc.uploaded_at).toLocaleDateString()}</p>
+                    </div>
+                    
+                    {doc.processing_status === 'completed' && doc.extracted_data && (
+                      <div style={{ marginBottom: '1rem' }}>
+                        <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#333', fontWeight: 'bold' }}>💎 Extracted Data:</h4>
+                        <div style={{ 
+                          background: 'rgba(255,255,255,0.7)', 
+                          padding: '1rem', 
+                          borderRadius: '15px'
+                        }}>
+                          {Object.entries(doc.extracted_data).map(([key, value]) => (
+                            <p key={key} style={{ margin: '0.25rem 0', color: '#333' }}>
+                              <strong>{key.replace(/_/g, ' ').toUpperCase()}:</strong> {' '}
+                              <span style={{ color: '#059669', fontWeight: 'bold' }}>
+                                {typeof value === 'number' && (key.includes('tax') || key.includes('wage') || key.includes('income')) ? 
+                                  `$${value.toLocaleString()}` : value}
+                              </span>
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                      {doc.processing_status === 'completed' && doc.extracted_data && (
+                        <button 
+                          onClick={() => applySuggestionsToForm(doc)}
+                          style={{
+                            background: 'linear-gradient(135deg, #10b981, #059669)',
+                            border: 'none',
+                            borderRadius: '15px',
+                            padding: '10px 20px',
+                            color: 'white',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🎯 Apply to Tax Form
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => viewDocumentDetails(doc.id)}
+                        style={{
+                          background: 'rgba(102, 126, 234, 0.1)',
+                          border: '2px solid #667eea',
+                          borderRadius: '15px',
+                          padding: '10px 20px',
+                          color: '#667eea',
+                          fontSize: '0.9rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        👁️ View Details
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* AI Feature Highlight */}
-          <div style={aiFeatureStyle}>
-            <div style={aiIconStyle}>
-              <svg width="24" height="24" viewBox="0 0 20 20" fill="white">
-                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </div>
-            <p style={aiTextStyle}>
-              🤖 AI will automatically extract your tax data with 99% accuracy!
-            </p>
+            )}
           </div>
-        </section>
-      </main>
+        )}
 
-      {/* Footer */}
-      <footer style={footerStyle}>
-        <p style={footerTextStyle}>
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style={{color: '#667eea'}}>
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-          </svg>
-          Powered by <span style={brandStyle}>TaxBox.AI</span> - Your Smart Tax Assistant
-        </p>
-        <p style={{...footerTextStyle, marginTop: '8px', fontSize: '13px'}}>
-          Making tax filing intelligent, simple, and secure ✨
-        </p>
-      </footer>
-
-      <style>{`
-        .nav-button:hover {
-          background-color: #e2e8f0 !important;
-          color: #334155 !important;
-        }
-        
-        .logout-button:hover {
-          background-color: #fee2e2 !important;
-          color: #dc2626 !important;
-        }
-        
-        .upload-area:hover {
-          border-color: #667eea;
-          background-color: #f0f4ff;
-        }
-        
-        .upload-area:active {
-          transform: scale(0.98);
-        }
-      `}</style>
+        {/* Tax Returns */}
+        {!showTaxForm && !showUploadForm && taxReturns.length > 0 && (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.9)',
+            borderRadius: '20px',
+            padding: '2rem'
+          }}>
+            <h2 style={{ fontSize: '2rem', marginBottom: '1.5rem' }}>💼 Your Tax Returns</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem' }}>
+              {taxReturns.map((taxReturn) => (
+                <div key={taxReturn.id} style={{
+                  background: 'linear-gradient(135deg, #d299c2 0%, #fef9d7 100%)',
+                  borderRadius: '20px',
+                  padding: '1.5rem',
+                  boxShadow: '0 12px 35px rgba(0,0,0,0.15)'
+                }}>
+                  <h3 style={{ fontSize: '1.3rem', color: '#333', marginBottom: '1rem' }}>📅 Tax Year: {taxReturn.tax_year}</h3>
+                  
+                  <div style={{ marginBottom: '1rem' }}>
+                    <p><strong>💰 Income:</strong> ${taxReturn.income.toLocaleString()}</p>
+                    <p><strong>🏛️ Tax Owed:</strong> ${taxReturn.tax_owed.toFixed(2)}</p>
+                  </div>
+                  
+                  <div style={{ marginBottom: '1rem', padding: '1rem', borderRadius: '15px', background: 'rgba(255,255,255,0.7)' }}>
+                    {taxReturn.refund_amount > 0 ? (
+                      <p style={{ color: '#059669', fontWeight: 'bold', fontSize: '1.2rem', textAlign: 'center', margin: 0 }}>
+                        🎉 Refund: ${taxReturn.refund_amount.toFixed(2)}
+                      </p>
+                    ) : (
+                      <p style={{ color: '#dc2626', fontWeight: 'bold', fontSize: '1.2rem', textAlign: 'center', margin: 0 }}>
+                        💳 Amount Owed: ${taxReturn.amount_owed.toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <button 
+                    onClick={() => downloadTaxReturn(taxReturn.id)}
+                    style={{
+                      background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                      border: 'none',
+                      borderRadius: '15px',
+                      padding: '8px 16px',
+                      color: 'white',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📥 Download JSON
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
+export default Dashboard;
