@@ -6,12 +6,14 @@ import api from '../services/api';
 function Dashboard() {
   const { user, logout } = useAuth();
   const [taxReturns, setTaxReturns] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showTaxForm, setShowTaxForm] = useState(false);
   const [showUploadForm, setShowUploadForm] = useState(false);
 
   useEffect(() => {
     fetchTaxReturns();
+    fetchDocuments();
   }, []);
 
   const fetchTaxReturns = async () => {
@@ -22,6 +24,15 @@ function Dashboard() {
       console.error('Error fetching tax returns:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDocuments = async () => {
+    try {
+      const response = await api.get('/documents');
+      setDocuments(response.data);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
     }
   };
 
@@ -50,6 +61,8 @@ function Dashboard() {
       });
       alert('Document uploaded successfully!');
       setShowUploadForm(false);
+      // Refresh documents after upload
+      fetchDocuments();
     } catch (error) {
       console.error('Error uploading document:', error);
       alert('Failed to upload document');
@@ -79,6 +92,44 @@ function Dashboard() {
     }
   };
 
+  const applySuggestionsToForm = (document) => {
+    if (document.extracted_data) {
+      const data = document.extracted_data;
+      const income = data.wages || data.income || 0;
+      const withholdings = data.federal_tax || 0;
+      
+      alert(`Ready to apply data:\nIncome: $${income.toLocaleString()}\nWithholdings: $${withholdings.toLocaleString()}\n\nClick "Start Filing" to use this data!`);
+      
+      // You can enhance this to actually pre-fill the tax form
+      setShowTaxForm(true);
+    }
+  };
+
+  const viewDocumentDetails = async (documentId) => {
+    try {
+      const response = await api.get(`/debug/document/${documentId}`);
+      const data = response.data;
+      
+      const details = `Document Details:
+━━━━━━━━━━━━━━━━━━
+📄 File: ${data.filename}
+📊 Status: ${data.processing_status}
+🏷️ Type: ${data.document_type || 'Unknown'}
+📅 Processed: ${data.processed_at ? new Date(data.processed_at).toLocaleDateString() : 'Not processed'}
+
+💰 Extracted Data:
+${data.extracted_data ? Object.entries(data.extracted_data)
+  .map(([key, value]) => `• ${key.replace(/_/g, ' ').toUpperCase()}: ${typeof value === 'number' ? '$' + value.toLocaleString() : value}`)
+  .join('\n') : 'No data extracted'}
+`;
+      
+      alert(details);
+    } catch (error) {
+      console.error('Error fetching document details:', error);
+      alert('Failed to fetch document details');
+    }
+  };
+
   return (
     <div className="container">
       {/* Header */}
@@ -86,7 +137,7 @@ function Dashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
           <div>
             <h1 className="text-2xl">Welcome, {user?.full_name}! 👋</h1>
-            <p>Ready to file your taxes?</p>
+            <p>Ready to file your taxes with AI document processing?</p>
           </div>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
             <button 
@@ -117,12 +168,15 @@ function Dashboard() {
               <input
                 type="file"
                 onChange={handleUploadDocument}
-                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
                 style={{ display: 'none' }}
               />
             </label>
             <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#666' }}>
-              Accepted formats: PDF, JPG, PNG, DOC, DOCX
+              Accepted formats: PDF, JPG, PNG, DOC, DOCX, TXT
+            </p>
+            <p style={{ fontSize: '0.9rem', color: '#3b82f6' }}>
+              🤖 We'll automatically extract tax information from your documents!
             </p>
           </div>
           <button 
@@ -161,15 +215,100 @@ function Dashboard() {
           </div>
           
           <div className="card text-center">
-            <h3 className="text-lg mb-4">💰 Calculate Refund</h3>
-            <p className="mb-4">Estimate your tax refund</p>
+            <h3 className="text-lg mb-4">🤖 AI Processing</h3>
+            <p className="mb-4">Let AI extract your tax data</p>
             <button 
-              onClick={() => setShowTaxForm(true)} 
+              onClick={() => setShowUploadForm(true)} 
               className="btn btn-primary"
             >
-              Calculate
+              Upload & Process
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Documents Section */}
+      {!showTaxForm && !showUploadForm && (
+        <div className="card">
+          <h2 className="text-2xl mb-4">Your Documents</h2>
+          
+          {documents.length === 0 ? (
+            <div className="text-center">
+              <p style={{ marginBottom: '2rem' }}>No documents uploaded yet.</p>
+              <button 
+                onClick={() => setShowUploadForm(true)} 
+                className="btn btn-primary"
+              >
+                Upload Your First Document
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {documents.map((doc) => (
+                <div key={doc.id} className="card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 className="text-lg">{doc.filename}</h3>
+                    <span 
+                      style={{ 
+                        padding: '4px 12px', 
+                        borderRadius: '12px', 
+                        fontSize: '0.8rem',
+                        backgroundColor: doc.processing_status === 'completed' ? '#d1fae5' : 
+                                        doc.processing_status === 'processing' ? '#fef3c7' : '#fee2e2',
+                        color: doc.processing_status === 'completed' ? '#065f46' : 
+                               doc.processing_status === 'processing' ? '#92400e' : '#dc2626'
+                      }}
+                    >
+                      {doc.processing_status?.toUpperCase()}
+                    </span>
+                  </div>
+                  
+                  <div style={{ marginBottom: '1rem' }}>
+                    <p><strong>Type:</strong> {doc.document_type || 'Unknown'}</p>
+                    <p><strong>Uploaded:</strong> {new Date(doc.uploaded_at).toLocaleDateString()}</p>
+                    {doc.processed_at && (
+                      <p><strong>Processed:</strong> {new Date(doc.processed_at).toLocaleDateString()}</p>
+                    )}
+                  </div>
+                  
+                  {/* Show extracted data if available */}
+                  {doc.processing_status === 'completed' && doc.extracted_data && (
+                    <div style={{ marginBottom: '1rem' }}>
+                      <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>📊 Extracted Data:</h4>
+                      <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '8px' }}>
+                        {Object.entries(doc.extracted_data).map(([key, value]) => (
+                          <p key={key} style={{ margin: '0.25rem 0' }}>
+                            <strong>{key.replace(/_/g, ' ').toUpperCase()}:</strong> {' '}
+                            {typeof value === 'number' && (key.includes('tax') || key.includes('wage') || key.includes('income')) ? 
+                              `$${value.toLocaleString()}` : value}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    {doc.processing_status === 'completed' && doc.extracted_data && (
+                      <button 
+                        onClick={() => applySuggestionsToForm(doc)}
+                        className="btn btn-primary"
+                        style={{ fontSize: '0.9rem' }}
+                      >
+                        📝 Apply to Tax Form
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => viewDocumentDetails(doc.id)}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.9rem' }}
+                    >
+                      👁️ View Details
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
