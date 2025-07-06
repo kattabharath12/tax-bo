@@ -24,7 +24,7 @@ export default function RegisterForm() {
   };
 
   const passwordStrength = getPasswordStrength(password);
-  const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
+  const strengthColors = ['#ef4444', '#f97316', '#eab308', '#22c55e'];
   const strengthLabels = ['Weak', 'Fair', 'Good', 'Strong'];
 
   const handleSubmit = async (e) => {
@@ -48,158 +48,465 @@ export default function RegisterForm() {
     }
   };
 
+  const containerStyle = {
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+    background: 'linear-gradient(135deg, #8b5cf6 0%, #a855f7 25%, #c084fc 50%, #e879f9 75%, #f472b6 100%)',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    position: 'relative',
+    overflow: 'hidden'
+  };
+
+  const successContainerStyle = {
+    ...containerStyle,
+    background: 'linear-gradient(135deg, #059669 0%, #10b981 25%, #34d399 50%, #6ee7b7 75%, #a7f3d0 100%)'
+  };
+
+  const backgroundElements = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+    zIndex: 0
+  };
+
+  const orb1Style = {
+    position: 'absolute',
+    top: '-150px',
+    right: '-150px',
+    width: '300px',
+    height: '300px',
+    background: 'radial-gradient(circle, rgba(236, 72, 153, 0.4) 0%, transparent 70%)',
+    borderRadius: '50%',
+    animation: 'float 8s ease-in-out infinite'
+  };
+
+  const orb2Style = {
+    position: 'absolute',
+    bottom: '-150px',
+    left: '-150px',
+    width: '300px',
+    height: '300px',
+    background: 'radial-gradient(circle, rgba(139, 92, 246, 0.4) 0%, transparent 70%)',
+    borderRadius: '50%',
+    animation: 'float 10s ease-in-out infinite reverse'
+  };
+
+  const orb3Style = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '200px',
+    height: '200px',
+    background: 'radial-gradient(circle, rgba(168, 85, 247, 0.3) 0%, transparent 70%)',
+    borderRadius: '50%',
+    animation: 'float 6s ease-in-out infinite'
+  };
+
+  const cardStyle = {
+    position: 'relative',
+    zIndex: 1,
+    width: '100%',
+    maxWidth: '440px',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(20px)',
+    borderRadius: '24px',
+    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+    padding: '40px',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    transition: 'transform 0.3s ease, box-shadow 0.3s ease'
+  };
+
+  const headerStyle = {
+    textAlign: 'center',
+    marginBottom: '32px'
+  };
+
+  const logoStyle = {
+    width: '64px',
+    height: '64px',
+    background: 'linear-gradient(135deg, #8b5cf6, #a855f7)',
+    borderRadius: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: '0 auto 16px',
+    boxShadow: '0 8px 32px rgba(139, 92, 246, 0.4)'
+  };
+
+  const successLogoStyle = {
+    ...logoStyle,
+    background: 'linear-gradient(135deg, #059669, #10b981)',
+    boxShadow: '0 8px 32px rgba(16, 185, 129, 0.4)',
+    animation: 'bounce 2s infinite'
+  };
+
+  const titleStyle = {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#1f2937',
+    margin: '0 0 8px 0'
+  };
+
+  const subtitleStyle = {
+    fontSize: '14px',
+    color: '#6b7280',
+    margin: 0
+  };
+
+  const errorStyle = {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    borderRadius: '12px',
+    padding: '12px',
+    marginBottom: '20px',
+    color: '#dc2626',
+    fontSize: '14px',
+    display: 'flex',
+    alignItems: 'center'
+  };
+
+  const formGroupStyle = {
+    marginBottom: '20px'
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: '6px'
+  };
+
+  const inputContainerStyle = {
+    position: 'relative'
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '12px 12px 12px 44px',
+    border: '1px solid #d1d5db',
+    borderRadius: '12px',
+    fontSize: '16px',
+    backgroundColor: '#f9fafb',
+    transition: 'all 0.2s ease',
+    outline: 'none',
+    boxSizing: 'border-box'
+  };
+
+  const passwordInputStyle = (isValid) => ({
+    ...inputStyle,
+    paddingRight: '44px',
+    borderColor: confirmPassword && password !== confirmPassword ? '#ef4444' :
+                 confirmPassword && password === confirmPassword ? '#22c55e' : '#d1d5db'
+  });
+
+  const iconStyle = {
+    position: 'absolute',
+    left: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: '#9ca3af',
+    pointerEvents: 'none'
+  };
+
+  const eyeButtonStyle = {
+    position: 'absolute',
+    right: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    background: 'none',
+    border: 'none',
+    color: '#9ca3af',
+    cursor: 'pointer',
+    padding: '4px',
+    transition: 'color 0.2s ease'
+  };
+
+  const strengthBarStyle = {
+    display: 'flex',
+    gap: '4px',
+    marginTop: '8px'
+  };
+
+  const strengthSegmentStyle = (index) => ({
+    height: '3px',
+    flex: 1,
+    borderRadius: '2px',
+    backgroundColor: index < passwordStrength ? strengthColors[passwordStrength - 1] : '#e5e7eb',
+    transition: 'all 0.3s ease'
+  });
+
+  const strengthTextStyle = {
+    fontSize: '12px',
+    color: passwordStrength > 2 ? '#22c55e' : passwordStrength > 1 ? '#eab308' : '#ef4444',
+    marginTop: '4px',
+    fontWeight: '500'
+  };
+
+  const validationTextStyle = (isValid) => ({
+    fontSize: '12px',
+    marginTop: '4px',
+    color: isValid ? '#22c55e' : '#ef4444',
+    fontWeight: '500'
+  });
+
+  const buttonStyle = {
+    width: '100%',
+    padding: '14px',
+    background: loading || password !== confirmPassword || !password || !email || !fullName ? 
+               '#9ca3af' : 'linear-gradient(135deg, #8b5cf6, #a855f7)',
+    border: 'none',
+    borderRadius: '12px',
+    color: 'white',
+    fontSize: '16px',
+    fontWeight: '600',
+    cursor: loading || password !== confirmPassword || !password || !email || !fullName ? 
+            'not-allowed' : 'pointer',
+    transition: 'all 0.2s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: loading || password !== confirmPassword || !password || !email || !fullName ? 
+               'none' : '0 4px 20px rgba(139, 92, 246, 0.4)'
+  };
+
+  const successButtonStyle = {
+    ...buttonStyle,
+    background: 'linear-gradient(135deg, #059669, #10b981)',
+    cursor: 'pointer',
+    boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)'
+  };
+
+  const linkStyle = {
+    textAlign: 'center',
+    marginTop: '24px',
+    fontSize: '14px',
+    color: '#6b7280'
+  };
+
+  const termsStyle = {
+    textAlign: 'center',
+    marginTop: '20px',
+    paddingTop: '20px',
+    borderTop: '1px solid #e5e7eb',
+    fontSize: '12px',
+    color: '#9ca3af'
+  };
+
+  const linkAStyle = {
+    color: '#8b5cf6',
+    textDecoration: 'none',
+    fontWeight: '500',
+    transition: 'color 0.2s ease'
+  };
+
+  const spinnerStyle = {
+    width: '20px',
+    height: '20px',
+    border: '2px solid rgba(255,255,255,0.3)',
+    borderRadius: '50%',
+    borderTopColor: 'white',
+    animation: 'spin 1s linear infinite',
+    marginRight: '8px'
+  };
+
   // Success Screen
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-emerald-900 via-teal-900 to-cyan-900 relative overflow-hidden">
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-emerald-400 to-teal-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-teal-400 to-cyan-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse delay-700"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-60 h-60 bg-gradient-to-br from-cyan-400 to-emerald-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse delay-300"></div>
-        </div>
+      <>
+        <style>{`
+          @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+          }
+          @keyframes bounce {
+            0%, 20%, 53%, 80%, 100% { transform: translateY(0); }
+            40%, 43% { transform: translateY(-15px); }
+            70% { transform: translateY(-7px); }
+            90% { transform: translateY(-3px); }
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+        
+        <div style={successContainerStyle}>
+          <div style={backgroundElements}>
+            <div style={{...orb1Style, background: 'radial-gradient(circle, rgba(16, 185, 129, 0.4) 0%, transparent 70%)'}}></div>
+            <div style={{...orb2Style, background: 'radial-gradient(circle, rgba(52, 211, 153, 0.4) 0%, transparent 70%)'}}></div>
+          </div>
 
-        <div className="relative w-full max-w-md">
-          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-8 text-center transition-all duration-300 hover:scale-105">
-            {/* Success Icon */}
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full mb-6 shadow-lg animate-bounce">
-              <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
-              </svg>
+          <div style={cardStyle} className="register-card">
+            <div style={headerStyle}>
+              <div style={successLogoStyle}>
+                <svg width="32" height="32" viewBox="0 0 20 20" fill="white">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                </svg>
+              </div>
+              <h1 style={titleStyle}>Welcome Aboard! 🎉</h1>
+              <p style={subtitleStyle}>Your TaxBox.AI account has been created successfully</p>
             </div>
-            
-            <h2 className="text-3xl font-bold text-white mb-4">
-              Welcome Aboard! 🎉
-            </h2>
-            
-            <p className="text-white/80 mb-8 leading-relaxed">
-              Your TaxBox.AI account has been created successfully. You're ready to revolutionize your tax experience!
-            </p>
-            
-            <a 
-              href="/login" 
-              className="inline-block w-full py-3 px-6 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
-            >
-              Start Your Journey
+
+            <div style={{textAlign: 'center', marginBottom: '32px'}}>
+              <p style={{fontSize: '16px', color: '#374151', lineHeight: '1.6', margin: '0 0 24px 0'}}>
+                You're ready to revolutionize your tax experience with AI-powered solutions!
+              </p>
+            </div>
+
+            <a href="/login" style={{textDecoration: 'none'}}>
+              <button style={successButtonStyle} className="success-button">
+                Start Your Journey
+              </button>
             </a>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-violet-900 via-purple-900 to-fuchsia-900 relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-fuchsia-400 to-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-violet-400 to-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse delay-700"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-60 h-60 bg-gradient-to-br from-purple-400 to-fuchsia-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse delay-300"></div>
-      </div>
+    <>
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(180deg); }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .register-card:hover {
+          transform: translateY(-8px);
+          box-shadow: 0 32px 64px rgba(0, 0, 0, 0.3);
+        }
+        .register-button:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 25px rgba(139, 92, 246, 0.6);
+        }
+        .success-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 25px rgba(16, 185, 129, 0.6);
+        }
+        .register-input:focus {
+          border-color: #8b5cf6;
+          background-color: #ffffff;
+          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+        .eye-button:hover {
+          color: #8b5cf6;
+        }
+        .link-hover:hover {
+          color: #7c3aed;
+          text-decoration: underline;
+        }
+        .strength-pulse {
+          animation: pulse 1s ease-in-out;
+        }
+        @keyframes pulse {
+          0% { opacity: 0.5; }
+          50% { opacity: 1; }
+          100% { opacity: 0.5; }
+        }
+      `}</style>
+      
+      <div style={containerStyle}>
+        <div style={backgroundElements}>
+          <div style={orb1Style}></div>
+          <div style={orb2Style}></div>
+          <div style={orb3Style}></div>
+        </div>
 
-      {/* Register Card */}
-      <div className="relative w-full max-w-md">
-        {/* Glassmorphism Card */}
-        <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-8 transition-all duration-300 hover:scale-105 hover:shadow-3xl">
-          {/* Logo/Brand Section */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-fuchsia-400 to-purple-500 rounded-2xl mb-4 shadow-lg">
-              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+        <div style={cardStyle} className="register-card">
+          <div style={headerStyle}>
+            <div style={logoStyle}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
                 <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L9 7V9C9 9.55 9.45 10 10 10H11V22H13V16H15V22H17V10H18C18.55 10 19 9.55 19 9Z"/>
               </svg>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">
-              Join TaxBox.AI
-            </h1>
-            <p className="text-white/70 text-sm">
-              Create your account and start managing taxes smartly
-            </p>
+            <h1 style={titleStyle}>Join TaxBox.AI</h1>
+            <p style={subtitleStyle}>Create your account and start managing taxes smartly</p>
           </div>
 
-          {/* Error Message */}
           {error && (
-            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-xl backdrop-blur-sm">
-              <div className="flex items-center">
-                <svg className="w-5 h-5 text-red-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
-                </svg>
-                <span className="text-red-200 text-sm">{error}</span>
-              </div>
+            <div style={errorStyle}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style={{marginRight: '8px'}}>
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+              </svg>
+              {error}
             </div>
           )}
 
-          {/* Register Form */}
-          <div className="space-y-5">
-            {/* Full Name Input */}
-            <div className="space-y-2">
-              <label className="text-white/90 text-sm font-medium block">
-                Full Name
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-white/40" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
-                  </svg>
-                </div>
+          <div>
+            {/* Full Name */}
+            <div style={formGroupStyle}>
+              <label style={labelStyle}>Full Name</label>
+              <div style={inputContainerStyle}>
+                <svg style={iconStyle} width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
+                </svg>
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
-                  className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-400 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
                   placeholder="Enter your full name"
+                  style={inputStyle}
+                  className="register-input"
                 />
               </div>
             </div>
 
-            {/* Email Input */}
-            <div className="space-y-2">
-              <label className="text-white/90 text-sm font-medium block">
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-white/40" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
-                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
-                  </svg>
-                </div>
+            {/* Email */}
+            <div style={formGroupStyle}>
+              <label style={labelStyle}>Email Address</label>
+              <div style={inputContainerStyle}>
+                <svg style={iconStyle} width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                </svg>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-400 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
                   placeholder="Enter your email"
+                  style={inputStyle}
+                  className="register-input"
                 />
               </div>
             </div>
 
-            {/* Password Input */}
-            <div className="space-y-2">
-              <label className="text-white/90 text-sm font-medium block">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-white/40" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
-                  </svg>
-                </div>
+            {/* Password */}
+            <div style={formGroupStyle}>
+              <label style={labelStyle}>Password</label>
+              <div style={inputContainerStyle}>
+                <svg style={iconStyle} width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
+                </svg>
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full pl-12 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-400 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
                   placeholder="Create a strong password"
+                  style={passwordInputStyle()}
+                  className="register-input"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-white/40 hover:text-white/70 transition-colors"
+                  style={eyeButtonStyle}
+                  className="eye-button"
                 >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                     {showPassword ? (
                       <path d="M10 12a2 2 0 100-4 2 2 0 000 4z M10 3C5.36 3 1.52 6.28 1.52 10s3.84 7 8.48 7 8.48-3.28 8.48-7-3.84-7-8.48-7zM2 10a8 8 0 1116 0 8 8 0 01-16 0z"/>
                     ) : (
@@ -211,57 +518,46 @@ export default function RegisterForm() {
               
               {/* Password Strength Indicator */}
               {password && (
-                <div className="space-y-2">
-                  <div className="flex space-x-1">
+                <div>
+                  <div style={strengthBarStyle}>
                     {[0, 1, 2, 3].map((index) => (
                       <div
                         key={index}
-                        className={`h-1 flex-1 rounded-full transition-all duration-200 ${
-                          index < passwordStrength ? strengthColors[passwordStrength - 1] : 'bg-white/20'
-                        }`}
+                        style={strengthSegmentStyle(index)}
+                        className={index < passwordStrength ? 'strength-pulse' : ''}
                       />
                     ))}
                   </div>
-                  <p className="text-xs text-white/60">
-                    Password strength: <span className={`font-medium ${passwordStrength > 2 ? 'text-green-400' : passwordStrength > 1 ? 'text-yellow-400' : 'text-red-400'}`}>
-                      {strengthLabels[passwordStrength - 1] || 'Too weak'}
-                    </span>
+                  <p style={strengthTextStyle}>
+                    Password strength: {strengthLabels[passwordStrength - 1] || 'Too weak'}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Confirm Password Input */}
-            <div className="space-y-2">
-              <label className="text-white/90 text-sm font-medium block">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-white/40" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
-                  </svg>
-                </div>
+            {/* Confirm Password */}
+            <div style={formGroupStyle}>
+              <label style={labelStyle}>Confirm Password</label>
+              <div style={inputContainerStyle}>
+                <svg style={iconStyle} width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                </svg>
                 <input
                   type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className={`w-full pl-12 pr-12 py-3 bg-white/10 border rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 backdrop-blur-sm ${
-                    confirmPassword && password !== confirmPassword 
-                      ? 'border-red-400 focus:ring-red-400' 
-                      : confirmPassword && password === confirmPassword
-                      ? 'border-green-400 focus:ring-green-400'
-                      : 'border-white/20 focus:ring-fuchsia-400'
-                  }`}
                   placeholder="Confirm your password"
+                  style={passwordInputStyle(confirmPassword && password === confirmPassword)}
+                  className="register-input"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-white/40 hover:text-white/70 transition-colors"
+                  style={eyeButtonStyle}
+                  className="eye-button"
                 >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                     {showConfirmPassword ? (
                       <path d="M10 12a2 2 0 100-4 2 2 0 000 4z M10 3C5.36 3 1.52 6.28 1.52 10s3.84 7 8.48 7 8.48-3.28 8.48-7-3.84-7-8.48-7zM2 10a8 8 0 1116 0 8 8 0 01-16 0z"/>
                     ) : (
@@ -270,62 +566,45 @@ export default function RegisterForm() {
                   </svg>
                 </button>
               </div>
-              {confirmPassword && password !== confirmPassword && (
-                <p className="text-red-400 text-xs">Passwords don't match</p>
-              )}
-              {confirmPassword && password === confirmPassword && (
-                <p className="text-green-400 text-xs">Passwords match ✓</p>
+              {confirmPassword && (
+                <p style={validationTextStyle(password === confirmPassword)}>
+                  {password === confirmPassword ? 'Passwords match ✓' : 'Passwords don\'t match'}
+                </p>
               )}
             </div>
 
-            {/* Register Button */}
             <button
               onClick={handleSubmit}
               disabled={loading || password !== confirmPassword || !password || !email || !fullName}
-              className={`w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200 transform ${
-                loading || password !== confirmPassword || !password || !email || !fullName
-                  ? 'bg-gray-500/50 cursor-not-allowed' 
-                  : 'bg-gradient-to-r from-fuchsia-500 to-purple-500 hover:from-fuchsia-600 hover:to-purple-600 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl'
-              }`}
+              style={buttonStyle}
+              className="register-button"
             >
               {loading ? (
-                <div className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                <>
+                  <div style={spinnerStyle}></div>
                   Creating Account...
-                </div>
+                </>
               ) : (
                 'Create Account'
               )}
             </button>
           </div>
 
-          {/* Login Link */}
-          <div className="mt-8 text-center">
-            <p className="text-white/70 text-sm">
-              Already have an account?{' '}
-              <a 
-                href="/login" 
-                className="text-fuchsia-400 hover:text-fuchsia-300 font-medium transition-colors duration-200 hover:underline"
-              >
-                Sign in here
-              </a>
-            </p>
+          <div style={linkStyle}>
+            Already have an account?{' '}
+            <a href="/login" style={linkAStyle} className="link-hover">
+              Sign in here
+            </a>
           </div>
 
-          {/* Terms and Privacy */}
-          <div className="mt-6 pt-6 border-t border-white/20">
-            <p className="text-white/50 text-xs text-center">
-              By creating an account, you agree to our{' '}
-              <a href="/terms" className="text-fuchsia-400 hover:underline">Terms of Service</a>
-              {' '}and{' '}
-              <a href="/privacy" className="text-fuchsia-400 hover:underline">Privacy Policy</a>
-            </p>
+          <div style={termsStyle}>
+            By creating an account, you agree to our{' '}
+            <a href="/terms" style={linkAStyle} className="link-hover">Terms of Service</a>
+            {' '}and{' '}
+            <a href="/privacy" style={linkAStyle} className="link-hover">Privacy Policy</a>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
