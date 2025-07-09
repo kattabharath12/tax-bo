@@ -3,12 +3,13 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginForm from './components/LoginForm';
 import RegisterForm from './components/RegisterForm';
 import Dashboard from './components/Dashboard';
+import FilingStatus from './pages/FilingStatus';
 import TestPage from './pages/TestPage';
 
 function AppContent() {
   const { user, loading } = useAuth();
   const currentPath = window.location.pathname;
-
+  
   if (loading) {
     return (
       <div className="container text-center">
@@ -18,12 +19,19 @@ function AppContent() {
       </div>
     );
   }
-
-  // If user is logged in, show dashboard
+  
+  // If user is logged in, show appropriate authenticated page
   if (user) {
-    return <Dashboard />;
+    if (currentPath === '/filing-status') {
+      return <FilingStatus />;
+    } else if (currentPath.startsWith('/filing-status/')) {
+      // Handle editing existing filing status (e.g., /filing-status/123)
+      return <FilingStatus />;
+    } else {
+      return <Dashboard />;
+    }
   }
-
+  
   // If not logged in, show appropriate page based on URL
   if (currentPath === '/login') {
     return <LoginForm />;
