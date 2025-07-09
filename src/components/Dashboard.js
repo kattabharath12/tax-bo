@@ -76,6 +76,17 @@ function Dashboard() {
     );
   }
 
+// Add this button somewhere in your Dashboard component
+<button 
+  onClick={() => {
+    window.history.pushState(null, '', '/filing-status');
+    window.location.reload();
+  }}
+  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+>
+  New Filing Status
+</button>
+
   const handleLogout = () => {
     logout();
   };
