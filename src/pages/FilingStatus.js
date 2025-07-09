@@ -1,18 +1,19 @@
 // src/pages/FilingStatus.js
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import FilingStatusForm from '../components/FilingStatusForm';
 import { apiService } from '../services/api';
 
 const FilingStatus = () => {
-  const navigate = useNavigate();
-  const { id } = useParams();
   const [taxReturn, setTaxReturn] = useState(null);
   const [loading, setLoading] = useState(false);
+  
+  // Get ID from URL path manually (since not using React Router)
+  const currentPath = window.location.pathname;
+  const pathParts = currentPath.split('/');
+  const id = pathParts[2]; // /filing-status/123 -> id = "123"
 
-  // Load existing tax return if editing
   useEffect(() => {
-    if (id) {
+    if (id && id !== '') {
       loadTaxReturn();
     }
   }, [id]);
@@ -33,19 +34,32 @@ const FilingStatus = () => {
 
   const handleFilingStatusSubmit = async (filingStatusData) => {
     try {
-      if (id) {
+      if (id && id !== '') {
+        // Editing existing filing status
         const updatedTaxReturn = await apiService.updateFilingStatus(id, filingStatusData);
         setTaxReturn(updatedTaxReturn);
         alert('Filing status updated successfully!');
-        navigate('/dashboard');
+        // Navigate back to dashboard
+        window.history.pushState(null, '', '/dashboard');
+        window.location.reload();
       } else {
+        // Creating new filing status
         localStorage.setItem('filingStatusData', JSON.stringify(filingStatusData));
-        navigate('/tax-wizard');
+        alert('Filing status saved! You can now create a tax return.');
+        // Navigate back to dashboard
+        window.history.pushState(null, '', '/dashboard');
+        window.location.reload();
       }
     } catch (error) {
       console.error('Error:', error);
       alert('Error saving filing status');
     }
+  };
+
+  const handleCancel = () => {
+    // Navigate back to dashboard
+    window.history.pushState(null, '', '/dashboard');
+    window.location.reload();
   };
 
   if (loading) {
@@ -60,8 +74,9 @@ const FilingStatus = () => {
     <div className="container mx-auto py-8">
       <FilingStatusForm
         onSubmit={handleFilingStatusSubmit}
+        onCancel={handleCancel}
         initialData={taxReturn}
-        isEditing={!!id}
+        isEditing={!!(id && id !== '')}
       />
     </div>
   );
