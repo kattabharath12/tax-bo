@@ -29,7 +29,7 @@ const FilingStatusForm = ({ onSubmit, onCancel, initialData, isEditing = false }
 
   useEffect(() => {
     loadStandardDeductions();
-  }, [formData.tax_year]);
+  }, [formData.tax_year]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadStandardDeductions = async () => {
     try {
