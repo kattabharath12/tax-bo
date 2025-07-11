@@ -9,6 +9,8 @@ import TestPage from './pages/TestPage';
 // New Tax Return Components
 import TaxReturns from './pages/TaxReturns';
 import CreateTaxReturn from './pages/CreateTaxReturn';
+
+// Add the FilingStatusHelper import back
 import FilingStatusHelper from './components/FilingStatusHelper';
 
 function AppContent() {
@@ -46,6 +48,7 @@ function AppContent() {
     else if (currentPath === '/filing-status') {
       return <FilingStatus />;
     } else if (currentPath === '/filing-status-guide') {
+      // Now use the actual FilingStatusHelper component
       return <FilingStatusHelper />;
     } else if (currentPath.startsWith('/filing-status/')) {
       // Handle editing existing filing status (e.g., /filing-status/123)
@@ -70,7 +73,6 @@ function AppContent() {
 
 // Simple Tax Return Details Component (you can create a full one later)
 function TaxReturnDetails({ taxReturnId }) {
-  const [taxReturn, setTaxReturn] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -79,7 +81,6 @@ function TaxReturnDetails({ taxReturnId }) {
       try {
         // You'll need to add this method to your API service
         // const data = await apiService.getTaxReturn(taxReturnId);
-        // setTaxReturn(data);
         console.log('Loading tax return:', taxReturnId);
       } catch (error) {
         console.error('Error loading tax return:', error);
