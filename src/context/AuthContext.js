@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../services/api';
+import { apiService } from '../services/api';  // ← Change this import
 
 const AuthContext = createContext();
 
@@ -26,9 +26,10 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = async () => {
     try {
-      const response = await api.get('/users/me');
-      setUser(response.data);
+      const response = await apiService.getProfile();  // ← Use apiService method
+      setUser(response);
     } catch (error) {
+      console.error('Error fetching user:', error);
       localStorage.removeItem('token');
     } finally {
       setLoading(false);
@@ -36,26 +37,50 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
-    const formData = new FormData();
-    formData.append('username', email);
-    formData.append('password', password);
+    try {
+      // Make direct API call since apiService doesn't have login method
+      const response = await fetch('https://tax-box-production.up.railway.app/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `username=${email}&password=${password}`
+      });
 
-    const response = await api.post('/token', formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    });
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
 
-    localStorage.setItem('token', response.data.access_token);
-    await fetchUser();
+      const data = await response.json();
+      localStorage.setItem('token', data.access_token);
+      await fetchUser();
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
   const register = async (email, fullName, password) => {
-    await api.post('/register', {
-      email,
-      full_name: fullName,
-      password,
-    });
+    try {
+      // Make direct API call for registration
+      const response = await fetch('https://tax-box-production.up.railway.app/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          full_name: fullName,
+          password,
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
   };
 
   const logout = () => {
