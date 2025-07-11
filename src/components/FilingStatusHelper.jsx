@@ -1,5 +1,5 @@
 // src/components/FilingStatusHelper.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { apiService } from '../services/api';
 
 const FilingStatusHelper = () => {
@@ -8,11 +8,7 @@ const FilingStatusHelper = () => {
   const [selectedYear, setSelectedYear] = useState(2024);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, [selectedYear]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [statusOptions, deductions] = await Promise.all([
@@ -27,7 +23,11 @@ const FilingStatusHelper = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedYear]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
