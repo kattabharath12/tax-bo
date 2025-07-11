@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import TaxForm from './TaxForm';
-import api from '../services/api';
+import { apiService } from '../services/api';  // ← Fixed import
 
 function Dashboard() {
   const { user, logout } = useAuth();
@@ -16,8 +16,8 @@ function Dashboard() {
 
   const fetchTaxReturns = async () => {
     try {
-      const response = await api.get('/tax-returns');
-      setTaxReturns(response.data);
+      const response = await apiService.getTaxReturns();  // ← Fixed API call
+      setTaxReturns(response);
     } catch (error) {
       console.error('Error fetching tax returns:', error);
     } finally {
@@ -43,11 +43,7 @@ function Dashboard() {
     formData.append('file', file);
 
     try {
-      await api.post('/documents/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      await apiService.uploadDocument(formData);  // ← Fixed API call
       alert('Document uploaded successfully!');
       setShowUploadForm(false);
     } catch (error) {
@@ -58,11 +54,20 @@ function Dashboard() {
 
   const downloadTaxReturn = async (taxReturnId) => {
     try {
-      const response = await api.get(`/tax-returns/${taxReturnId}/export/json`, {
-        responseType: 'blob'
+      // Use direct fetch for file downloads since apiService doesn't handle blobs
+      const token = localStorage.getItem('token');
+      const response = await fetch(`https://tax-box-production.up.railway.app/tax-returns/${taxReturnId}/export/json`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
-      const blob = new Blob([response.data], { type: 'application/json' });
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      
+      const data = await response.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -77,6 +82,15 @@ function Dashboard() {
       console.error('Error downloading tax return:', error);
       alert('Failed to download tax return');
     }
+  };
+
+  // Navigation functions for new tax return pages
+  const navigateToTaxReturns = () => {
+    window.location.href = '/tax-returns';
+  };
+
+  const navigateToCreateTaxReturn = () => {
+    window.location.href = '/tax-returns/create';
   };
 
   return (
@@ -94,6 +108,12 @@ function Dashboard() {
               className="btn btn-secondary"
             >
               Dashboard
+            </button>
+            <button 
+              onClick={navigateToTaxReturns} 
+              className="btn btn-primary"
+            >
+              Tax Returns
             </button>
             <button onClick={handleLogout} className="btn btn-secondary">
               Logout
@@ -140,9 +160,9 @@ function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="card text-center">
             <h3 className="text-lg mb-4">📝 File New Return</h3>
-            <p className="mb-4">Start your tax return for 2024</p>
+            <p className="mb-4">Start your tax return for 2024 with filing status support</p>
             <button 
-              onClick={() => setShowTaxForm(true)} 
+              onClick={navigateToCreateTaxReturn} 
               className="btn btn-primary"
             >
               Start Filing
@@ -161,13 +181,13 @@ function Dashboard() {
           </div>
           
           <div className="card text-center">
-            <h3 className="text-lg mb-4">💰 Calculate Refund</h3>
-            <p className="mb-4">Estimate your tax refund</p>
+            <h3 className="text-lg mb-4">💰 View All Returns</h3>
+            <p className="mb-4">See all your tax returns with filing status details</p>
             <button 
-              onClick={() => setShowTaxForm(true)} 
+              onClick={navigateToTaxReturns} 
               className="btn btn-primary"
             >
-              Calculate
+              View Returns
             </button>
           </div>
         </div>
@@ -177,13 +197,21 @@ function Dashboard() {
       {!showTaxForm && !showUploadForm && (
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-            <h2 className="text-2xl">Your Tax Returns</h2>
-            <button 
-              onClick={() => setShowTaxForm(true)} 
-              className="btn btn-primary"
-            >
-              File New Return
-            </button>
+            <h2 className="text-2xl">Recent Tax Returns</h2>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button 
+                onClick={navigateToCreateTaxReturn} 
+                className="btn btn-primary"
+              >
+                File New Return
+              </button>
+              <button 
+                onClick={navigateToTaxReturns} 
+                className="btn btn-secondary"
+              >
+                View All
+              </button>
+            </div>
           </div>
           
           {loading ? (
@@ -192,9 +220,9 @@ function Dashboard() {
             </div>
           ) : taxReturns.length === 0 ? (
             <div className="text-center">
-              <p style={{ marginBottom: '2rem' }}>No tax returns found. Start your first return above!</p>
+              <p style={{ marginBottom: '2rem' }}>No tax returns found. Start your first return!</p>
               <button 
-                onClick={() => setShowTaxForm(true)} 
+                onClick={navigateToCreateTaxReturn} 
                 className="btn btn-primary"
               >
                 File Your First Return
@@ -202,7 +230,7 @@ function Dashboard() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {taxReturns.map((taxReturn) => (
+              {taxReturns.slice(0, 4).map((taxReturn) => (
                 <div key={taxReturn.id} className="card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <h3 className="text-lg">Tax Year: {taxReturn.tax_year}</h3>
@@ -218,36 +246,56 @@ function Dashboard() {
                       {taxReturn.status.toUpperCase()}
                     </span>
                   </div>
+
+                  {/* Display Filing Status */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <p><strong>Filing Status:</strong> {taxReturn.filing_status ? 
+                      taxReturn.filing_status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 
+                      'Not specified'
+                    }</p>
+                    {taxReturn.spouse_name && (
+                      <p><strong>Spouse:</strong> {taxReturn.spouse_name}</p>
+                    )}
+                    {taxReturn.qualifying_person_name && (
+                      <p><strong>Qualifying Person:</strong> {taxReturn.qualifying_person_name}</p>
+                    )}
+                  </div>
                   
                   <div className="grid grid-cols-2 gap-4" style={{ marginBottom: '1rem' }}>
                     <div>
-                      <p><strong>Income:</strong> ${taxReturn.income.toLocaleString()}</p>
-                      <p><strong>Deductions:</strong> ${taxReturn.deductions.toLocaleString()}</p>
+                      <p><strong>Income:</strong> ${taxReturn.income?.toLocaleString() || '0'}</p>
+                      <p><strong>Deductions:</strong> ${taxReturn.deductions?.toLocaleString() || '0'}</p>
                     </div>
                     <div>
-                      <p><strong>Tax Owed:</strong> ${taxReturn.tax_owed.toFixed(2)}</p>
-                      <p><strong>Withholdings:</strong> ${taxReturn.withholdings.toFixed(2)}</p>
+                      <p><strong>Tax Owed:</strong> ${taxReturn.tax_owed?.toFixed(2) || '0.00'}</p>
+                      <p><strong>Withholdings:</strong> ${taxReturn.withholdings?.toFixed(2) || '0.00'}</p>
                     </div>
                   </div>
                   
                   <div style={{ marginBottom: '1rem' }}>
-                    {taxReturn.refund_amount > 0 ? (
+                    {(taxReturn.refund_amount || 0) > 0 ? (
                       <p style={{ color: 'green', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                        💰 Refund: ${taxReturn.refund_amount.toFixed(2)}
+                        💰 Refund: ${taxReturn.refund_amount?.toFixed(2) || '0.00'}
                       </p>
                     ) : (
                       <p style={{ color: 'red', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                        💸 Amount Owed: ${taxReturn.amount_owed.toFixed(2)}
+                        💸 Amount Owed: ${taxReturn.amount_owed?.toFixed(2) || '0.00'}
                       </p>
                     )}
                   </div>
                   
                   <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <button className="btn btn-secondary">
+                    <button 
+                      onClick={() => window.location.href = `/tax-returns/view/${taxReturn.id}`}
+                      className="btn btn-secondary"
+                    >
                       View Details
                     </button>
                     {taxReturn.status === 'draft' && (
-                      <button className="btn btn-primary">
+                      <button 
+                        onClick={() => window.location.href = `/tax-returns/edit/${taxReturn.id}`}
+                        className="btn btn-primary"
+                      >
                         Continue Filing
                       </button>
                     )}
@@ -256,7 +304,7 @@ function Dashboard() {
                       className="btn btn-secondary"
                       style={{ fontSize: '0.9rem' }}
                     >
-                      📥 Download JSON
+                      📥 Download
                     </button>
                   </div>
                   
@@ -274,7 +322,7 @@ function Dashboard() {
       {!showTaxForm && !showUploadForm && taxReturns.length > 0 && (
         <div className="card">
           <h2 className="text-2xl mb-4">Tax Summary</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="text-center">
               <h3 className="text-lg">Total Returns</h3>
               <p className="text-2xl" style={{ color: '#3b82f6' }}>{taxReturns.length}</p>
@@ -282,13 +330,22 @@ function Dashboard() {
             <div className="text-center">
               <h3 className="text-lg">Total Refunds</h3>
               <p className="text-2xl" style={{ color: 'green' }}>
-                ${taxReturns.reduce((sum, tr) => sum + tr.refund_amount, 0).toFixed(2)}
+                ${taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0).toFixed(2)}
               </p>
             </div>
             <div className="text-center">
               <h3 className="text-lg">Total Income</h3>
               <p className="text-2xl" style={{ color: '#374151' }}>
-                ${taxReturns.reduce((sum, tr) => sum + tr.income, 0).toLocaleString()}
+                ${taxReturns.reduce((sum, tr) => sum + (tr.income || 0), 0).toLocaleString()}
+              </p>
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg">Avg. Refund</h3>
+              <p className="text-2xl" style={{ color: '#10b981' }}>
+                ${taxReturns.length > 0 ? 
+                  (taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0) / taxReturns.length).toFixed(2) : 
+                  '0.00'
+                }
               </p>
             </div>
           </div>
