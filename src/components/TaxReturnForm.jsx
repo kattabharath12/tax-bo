@@ -1,5 +1,5 @@
 // src/components/TaxReturnForm.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { apiService } from '../services/api';
 
 const TaxReturnForm = ({ onSuccess }) => {
@@ -23,11 +23,7 @@ const TaxReturnForm = ({ onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadFilingStatusData();
-  }, []);
-
-  const loadFilingStatusData = async () => {
+  const loadFilingStatusData = useCallback(async () => {
     try {
       const [statusOptions, deductions] = await Promise.all([
         apiService.getFilingStatusOptions(),
@@ -40,7 +36,11 @@ const TaxReturnForm = ({ onSuccess }) => {
       console.error('Error loading filing status data:', error);
       setError('Failed to load filing status options');
     }
-  };
+  }, [formData.tax_year]);
+
+  useEffect(() => {
+    loadFilingStatusData();
+  }, [loadFilingStatusData]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
