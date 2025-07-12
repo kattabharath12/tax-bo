@@ -3,6 +3,27 @@ import React, { useState } from 'react';
 function Dashboard() {
   const [user] = useState({ full_name: 'Your Name' });
   
+  // Logout function that navigates back to login
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      // Clear any stored authentication data
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.clear();
+      
+      // Navigate back to login page
+      // Method 1: Using window.location (works in all setups)
+      window.location.href = '/login';
+      
+      // Method 2: If you're using React Router, uncomment this instead:
+      // const navigate = useNavigate();
+      // navigate('/login');
+      
+      // Method 3: If you have a logout function from context, call it:
+      // logout(); // from useAuth() or similar
+    }
+  };
+  
   const [taxReturns, setTaxReturns] = useState([
     {
       id: 1,
@@ -144,19 +165,12 @@ function Dashboard() {
 
   return (
     <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #581c87 50%, #1e1b4b 75%, #0f172a 100%)',
       color: 'white',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-      overflow: 'auto',
-      zIndex: 9999
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
     }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 1rem', minHeight: '100vh' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 1rem' }}>
         
         {/* Header */}
         <div style={{
@@ -240,12 +254,7 @@ function Dashboard() {
               transition: 'all 0.3s ease',
               fontSize: '0.875rem'
             }}
-            onClick={() => {
-              if (window.confirm('Are you sure you want to logout?')) {
-                alert('Logged out successfully!');
-                // In a real app, you would redirect to login page or clear auth tokens
-              }
-            }}>
+            onClick={handleLogout}>
               Logout
             </button>
           </div>
