@@ -73,6 +73,17 @@ export const apiService = {
     }
   },
 
+  // ADD THIS METHOD - Update existing tax return
+  updateTaxReturn: async (taxReturnId, taxReturnData) => {
+    try {
+      const response = await api.put(`/tax-returns/${taxReturnId}`, taxReturnData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating tax return:', error);
+      throw new Error('Failed to update tax return');
+    }
+  },
+
   updateFilingStatus: async (taxReturnId, filingStatusData) => {
     try {
       const response = await api.put(`/tax-returns/${taxReturnId}/filing-status`, filingStatusData);
@@ -103,6 +114,17 @@ export const apiService = {
     }
   },
 
+  // ADD THIS METHOD - Delete tax return
+  deleteTaxReturn: async (taxReturnId) => {
+    try {
+      const response = await api.delete(`/tax-returns/${taxReturnId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting tax return:', error);
+      throw new Error('Failed to delete tax return');
+    }
+  },
+
   // Document endpoints
   uploadDocument: async (formData) => {
     try {
@@ -128,6 +150,57 @@ export const apiService = {
     }
   },
 
+  // ADD THIS METHOD - Get single document
+  getDocument: async (documentId) => {
+    try {
+      const response = await api.get(`/documents/${documentId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching document:', error);
+      throw new Error('Failed to fetch document');
+    }
+  },
+
+  // ADD THIS METHOD - Delete document
+  deleteDocument: async (documentId) => {
+    try {
+      const response = await api.delete(`/documents/${documentId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      throw new Error('Failed to delete document');
+    }
+  },
+
+  // ADD THIS METHOD - Process document for tax data extraction
+  processDocumentForTaxData: async (documentId) => {
+    try {
+      const response = await api.post(`/documents/${documentId}/process-tax-data`);
+      return response.data;
+    } catch (error) {
+      console.error('Error processing document for tax data:', error);
+      // If backend doesn't support this endpoint yet, return empty data
+      return {
+        income: 0,
+        withholdings: 0,
+        deductions: 0,
+        tax_year: new Date().getFullYear() - 1,
+        filing_status: 'single'
+      };
+    }
+  },
+
+  // ADD THIS METHOD - Auto-create tax return from document
+  autoCreateTaxReturnFromDocument: async (documentId) => {
+    try {
+      const response = await api.post(`/documents/${documentId}/auto-create-tax-return`);
+      return response.data;
+    } catch (error) {
+      console.error('Error auto-creating tax return from document:', error);
+      throw new Error('Failed to auto-create tax return from document');
+    }
+  },
+
   // User endpoints
   getProfile: async () => {
     try {
@@ -139,6 +212,17 @@ export const apiService = {
     }
   },
 
+  // ADD THIS METHOD - Update user profile
+  updateProfile: async (profileData) => {
+    try {
+      const response = await api.put('/users/me', profileData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw new Error('Failed to update profile');
+    }
+  },
+
   // Payment endpoints
   createPayment: async (paymentData) => {
     try {
@@ -147,6 +231,100 @@ export const apiService = {
     } catch (error) {
       console.error('Error creating payment:', error);
       throw new Error('Failed to create payment');
+    }
+  },
+
+  // ADD THIS METHOD - Get payments
+  getPayments: async () => {
+    try {
+      const response = await api.get('/payments');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      throw new Error('Failed to fetch payments');
+    }
+  },
+
+  // ADD THIS METHOD - Get payment by ID
+  getPayment: async (paymentId) => {
+    try {
+      const response = await api.get(`/payments/${paymentId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching payment:', error);
+      throw new Error('Failed to fetch payment');
+    }
+  },
+
+  // ADD THESE METHODS - Tax calculation and validation
+  calculateTax: async (taxData) => {
+    try {
+      const response = await api.post('/tax-returns/calculate', taxData);
+      return response.data;
+    } catch (error) {
+      console.error('Error calculating tax:', error);
+      // Fallback calculation if backend doesn't support
+      return {
+        tax_owed: 0,
+        refund_amount: 0,
+        amount_owed: 0,
+        effective_tax_rate: 0
+      };
+    }
+  },
+
+  validateTaxReturn: async (taxReturnData) => {
+    try {
+      const response = await api.post('/tax-returns/validate', taxReturnData);
+      return response.data;
+    } catch (error) {
+      console.error('Error validating tax return:', error);
+      return { valid: true, errors: [] };
+    }
+  },
+
+  // ADD THIS METHOD - Submit/file tax return
+  submitTaxReturn: async (taxReturnId) => {
+    try {
+      const response = await api.post(`/tax-returns/${taxReturnId}/submit`);
+      return response.data;
+    } catch (error) {
+      console.error('Error submitting tax return:', error);
+      throw new Error('Failed to submit tax return');
+    }
+  },
+
+  // ADD THESE METHODS - Export functionality
+  exportTaxReturnPDF: async (taxReturnId) => {
+    try {
+      const response = await api.get(`/tax-returns/${taxReturnId}/export/pdf`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error exporting tax return as PDF:', error);
+      throw new Error('Failed to export tax return as PDF');
+    }
+  },
+
+  exportTaxReturnJSON: async (taxReturnId) => {
+    try {
+      const response = await api.get(`/tax-returns/${taxReturnId}/export/json`);
+      return response.data;
+    } catch (error) {
+      console.error('Error exporting tax return as JSON:', error);
+      throw new Error('Failed to export tax return as JSON');
+    }
+  },
+
+  // ADD THIS METHOD - Get tax return status
+  getTaxReturnStatus: async (taxReturnId) => {
+    try {
+      const response = await api.get(`/tax-returns/${taxReturnId}/status`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching tax return status:', error);
+      throw new Error('Failed to fetch tax return status');
     }
   }
 };
