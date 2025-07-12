@@ -55,21 +55,21 @@ function Dashboard() {
 
  const downloadTaxReturn = async (taxReturn) => {
   try {
-    // Debug: Log the complete tax return data
-    console.log('=== DEBUG: Tax Return Data ===');
-    console.log('Full taxReturn object:', taxReturn);
-    console.log('taxReturn keys:', Object.keys(taxReturn || {}));
-    console.log('taxReturn.tax_year:', taxReturn?.tax_year);
-    console.log('taxReturn.income:', taxReturn?.income);
-    console.log('taxReturn.deductions:', taxReturn?.deductions);
-    console.log('taxReturn.tax_owed:', taxReturn?.tax_owed);
-    console.log('taxReturn.withholdings:', taxReturn?.withholdings);
-    console.log('taxReturn.refund_amount:', taxReturn?.refund_amount);
-    console.log('taxReturn.amount_owed:', taxReturn?.amount_owed);
-    console.log('taxReturn.status:', taxReturn?.status);
-    console.log('taxReturn.id:', taxReturn?.id);
-    console.log('=== END DEBUG ===');
-    
+    // Validate that we have the full object, not just an ID
+    if (typeof taxReturn === 'number' || typeof taxReturn === 'string') {
+      alert('Error: Tax return data not available. Please refresh the page and try again.');
+      console.error('Received ID instead of tax return object:', taxReturn);
+      return;
+    }
+
+    if (!taxReturn || typeof taxReturn !== 'object') {
+      alert('Error: Invalid tax return data. Please try again.');
+      console.error('Invalid tax return data:', taxReturn);
+      return;
+    }
+
+    console.log('Processing tax return:', taxReturn);
+
     // Create new PDF document
     const doc = new jsPDF();
     
@@ -78,24 +78,25 @@ function Dashboard() {
     doc.setFont(undefined, 'bold');
     doc.text('TAX RETURN SUMMARY', 105, 30, { align: 'center' });
     
-    // Add debug info to PDF
-    doc.setFontSize(10);
-    doc.text(`DEBUG - Data Keys: ${Object.keys(taxReturn || {}).join(', ')}`, 20, 50);
-    
     // Add tax year
     doc.setFontSize(16);
-    doc.text(`Tax Year: ${taxReturn?.tax_year || 'N/A'}`, 20, 70);
+    doc.text(`Tax Year: ${taxReturn.tax_year || 'N/A'}`, 20, 50);
     
     // Add taxpayer info
     doc.setFontSize(12);
-    let yPosition = 90;
+    let yPosition = 70;
     
     doc.text(`Taxpayer: ${user?.full_name || 'N/A'}`, 20, yPosition);
     yPosition += 10;
     
-    if (taxReturn?.filing_status) {
+    if (taxReturn.filing_status) {
       const filingStatus = String(taxReturn.filing_status).replace(/_/g, ' ').toUpperCase();
       doc.text(`Filing Status: ${filingStatus}`, 20, yPosition);
+      yPosition += 10;
+    }
+    
+    if (taxReturn.spouse_name) {
+      doc.text(`Spouse Name: ${taxReturn.spouse_name}`, 20, yPosition);
       yPosition += 10;
     }
     
@@ -110,12 +111,12 @@ function Dashboard() {
     doc.setFontSize(12);
     doc.setFont(undefined, 'normal');
     
-    const income = Number(taxReturn?.income) || 0;
-    const deductions = Number(taxReturn?.deductions) || 0;
-    const taxOwed = Number(taxReturn?.tax_owed) || 0;
-    const withholdings = Number(taxReturn?.withholdings) || 0;
-    const refundAmount = Number(taxReturn?.refund_amount) || 0;
-    const amountOwed = Number(taxReturn?.amount_owed) || 0;
+    const income = Number(taxReturn.income) || 0;
+    const deductions = Number(taxReturn.deductions) || 0;
+    const taxOwed = Number(taxReturn.tax_owed) || 0;
+    const withholdings = Number(taxReturn.withholdings) || 0;
+    const refundAmount = Number(taxReturn.refund_amount) || 0;
+    const amountOwed = Number(taxReturn.amount_owed) || 0;
     
     doc.text(`Total Income: $${income.toLocaleString()}`, 20, yPosition);
     yPosition += 10;
@@ -143,11 +144,14 @@ function Dashboard() {
     doc.setFont(undefined, 'bold');
     
     if (refundAmount > 0) {
-      doc.setTextColor(0, 128, 0);
+      doc.setTextColor(0, 128, 0); // Green
       doc.text(`REFUND AMOUNT: $${refundAmount.toFixed(2)}`, 20, yPosition);
-    } else {
-      doc.setTextColor(128, 0, 0);
+    } else if (amountOwed > 0) {
+      doc.setTextColor(128, 0, 0); // Red
       doc.text(`AMOUNT OWED: $${amountOwed.toFixed(2)}`, 20, yPosition);
+    } else {
+      doc.setTextColor(0, 128, 0); // Green
+      doc.text(`NO TAX DUE`, 20, yPosition);
     }
     
     // Reset color
@@ -157,20 +161,27 @@ function Dashboard() {
     yPosition += 30;
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(`Status: ${(taxReturn?.status || 'N/A').toUpperCase()}`, 20, yPosition);
+    doc.text(`Status: ${(taxReturn.status || 'DRAFT').toUpperCase()}`, 20, yPosition);
+    yPosition += 10;
+    doc.text(`Created: ${taxReturn.created_at ? new Date(taxReturn.created_at).toLocaleDateString() : 'N/A'}`, 20, yPosition);
     yPosition += 10;
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, yPosition);
     
-    // Add raw data for debugging
+    // Add disclaimer
     yPosition += 20;
     doc.setFontSize(8);
-    doc.text(`Raw Data: ${JSON.stringify(taxReturn || {}).substring(0, 100)}...`, 20, yPosition);
+    doc.text('Generated by TaxBox.AI - For informational purposes only', 20, yPosition);
+    doc.text('Please consult with a tax professional for official tax filing.', 20, yPosition + 10);
     
     // Save the PDF
-    const filename = `debug_tax_return_${Date.now()}.pdf`;
+    const safeId = taxReturn.id || Date.now();
+    const safeYear = taxReturn.tax_year || 'unknown';
+    const filename = `tax_return_${safeYear}_${safeId}.pdf`;
+    
     doc.save(filename);
     
-    alert('Debug PDF downloaded! Check console for data details.');
+    console.log('PDF generated successfully:', filename);
+    alert('Tax return PDF downloaded successfully!');
     
   } catch (error) {
     console.error('PDF generation error:', error);
