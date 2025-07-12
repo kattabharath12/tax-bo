@@ -24,57 +24,9 @@ function Dashboard() {
     }
   };
   
-  const [taxReturns, setTaxReturns] = useState([
-    {
-      id: 1,
-      tax_year: 2024,
-      income: 85000,
-      deductions: 12550,
-      withholdings: 9500,
-      tax_owed: 8200,
-      refund_amount: 1300,
-      amount_owed: 0,
-      status: 'draft',
-      auto_generated: true,
-      source_document: 'W2_Acme_Corp.pdf',
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 2,
-      tax_year: 2023,
-      income: 78000,
-      deductions: 12550,
-      withholdings: 8900,
-      tax_owed: 7800,
-      refund_amount: 1100,
-      amount_owed: 0,
-      status: 'filed',
-      auto_generated: false,
-      source_document: 'manual_entry',
-      created_at: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
-    }
-  ]);
+  const [taxReturns, setTaxReturns] = useState([]);
   
-  const [documents, setDocuments] = useState([
-    {
-      id: 1,
-      filename: 'W2_Acme_Corp_2024.pdf',
-      file_type: 'application/pdf',
-      file_size: 245760,
-      uploaded_at: new Date().toISOString(),
-      ocr_text: 'Sample OCR text extracted',
-      file_url: '#'
-    },
-    {
-      id: 2,
-      filename: '1099_Freelance_2024.pdf',
-      file_type: 'application/pdf',
-      file_size: 189440,
-      uploaded_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      ocr_text: null,
-      file_url: '#'
-    }
-  ]);
+  const [documents, setDocuments] = useState([]);
   
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
