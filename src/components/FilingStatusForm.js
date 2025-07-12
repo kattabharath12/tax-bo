@@ -149,7 +149,6 @@ const FilingStatusForm = ({ onSubmit, onCancel, initialData, isEditing = false }
   ];
 
   return (
-    {/* ADD THE SAME CONTAINER STRUCTURE AS DASHBOARD */}
     <div className="min-h-screen bg-gray-50 py-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg border p-6">
