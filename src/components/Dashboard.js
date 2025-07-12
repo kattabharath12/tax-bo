@@ -53,7 +53,7 @@ function Dashboard() {
     }
   };
 
-  const downloadTaxReturn = async (taxReturn) => {
+ const downloadTaxReturn = async (taxReturn) => {
   try {
     // Create new PDF document
     const doc = new jsPDF();
@@ -70,10 +70,10 @@ function Dashboard() {
     doc.rect(10, 10, 190, 277);
     
     // Header with background
-    doc.setFillColor(66, 139, 202); // Blue background
+    doc.setFillColor(66, 139, 202);
     doc.rect(15, 15, 180, 25, 'F');
     
-    doc.setTextColor(255, 255, 255); // White text
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
     doc.text('TAX RETURN SUMMARY', 105, 32, { align: 'center' });
@@ -158,12 +158,12 @@ function Dashboard() {
     const isRefund = (taxReturn.refund_amount || 0) > 0;
     
     // Create a colored box for the result
-    doc.setFillColor(isRefund ? 220, 252, 231 : 254, 226, 226); // Green or red background
+    doc.setFillColor(isRefund ? 220 : 254, isRefund ? 252 : 226, isRefund ? 231 : 226);
     doc.rect(20, y - 5, 165, 25, 'F');
     
     doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(isRefund ? 21, 128, 61 : 185, 28, 28); // Green or red text
+    doc.setTextColor(isRefund ? 21 : 185, isRefund ? 128 : 28, isRefund ? 61 : 28);
     
     if (isRefund) {
       doc.text('REFUND AMOUNT:', 25, y + 8);
