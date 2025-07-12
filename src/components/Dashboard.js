@@ -1,5 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, FileText, Bot, DollarSign, Upload, Eye, Edit, Download, Trash2, Plus, Check, AlertCircle, Zap, TrendingUp, Shield, Sparkles } from 'lucide-react';
+{[
+                      { label: "Income", value: `${(taxReturn.income || 0).toLocaleString()}`, icon: "💰", color: "text-green-400" },
+                      { label: "Deductions", value: `${(taxReturn.deductions || 0).toLocaleString()}`, icon: "📄", color: "text-blue-400" },
+                      { label: "Tax Owed", value: `${(taxReturn.tax_owed || 0).toFixed(2)}`, icon: "⚠️", color: "text-orange-400" },
+                      { label: "Withholdings", value: `${(taxReturn.withholdings || 0).toFixed(2)}`, icon: "🛡️", color: "text-purple-400" }
+                    ].map((item, i) => (
+                      <div key={i} className="text-center p-3 bg-white/5 border border-white/10 rounded-xl">
+                        <span className={`text-xl mx-auto mb-1 block ${item.color}`}>{item.icon}</span>
+                        <p className="text-xs text-gray-400 font-medium">{item.labelimport React, { useState, useEffect, useCallback } from 'react';
 
 function Dashboard() {
   // Simulated data and state management
@@ -140,10 +147,10 @@ function Dashboard() {
   };
 
   const stats = [
-    { title: 'Total Returns', value: taxReturns.length, icon: FileText, gradient: 'from-blue-500 to-cyan-500' },
-    { title: 'Total Refunds', value: `$${taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0).toLocaleString()}`, icon: DollarSign, gradient: 'from-emerald-500 to-green-500' },
-    { title: 'AI Generated', value: taxReturns.filter(tr => tr.auto_generated).length, icon: Bot, gradient: 'from-purple-500 to-indigo-500' },
-    { title: 'Documents', value: documents.length, icon: Upload, gradient: 'from-orange-500 to-red-500' }
+    { title: 'Total Returns', value: taxReturns.length, icon: '📄', gradient: 'from-blue-500 to-cyan-500' },
+    { title: 'Total Refunds', value: `${taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0).toLocaleString()}`, icon: '💰', gradient: 'from-emerald-500 to-green-500' },
+    { title: 'AI Generated', value: taxReturns.filter(tr => tr.auto_generated).length, icon: '🤖', gradient: 'from-purple-500 to-indigo-500' },
+    { title: 'Documents', value: documents.length, icon: '📤', gradient: 'from-orange-500 to-red-500' }
   ];
 
   return (
@@ -194,7 +201,7 @@ function Dashboard() {
               {/* Smart Filing Toggle */}
               <div className="flex items-center gap-4 bg-white/10 backdrop-blur rounded-2xl p-4">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-purple-400" />
+                  <span className="text-2xl">✨</span>
                   <span className="font-medium">Smart Filing</span>
                 </div>
                 <button
@@ -238,7 +245,7 @@ function Dashboard() {
           <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 mb-8">
             <div className="flex items-center gap-4 mb-6">
               <div className="w-14 h-14 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center">
-                <Edit className="w-8 h-8" />
+                <span className="text-3xl">📝</span>
               </div>
               <div>
                 <h2 className="text-3xl font-bold">Smart Tax Entry</h2>
@@ -341,7 +348,7 @@ function Dashboard() {
           <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 mb-8">
             <div className="flex items-center gap-4 mb-6">
               <div className="w-14 h-14 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl flex items-center justify-center">
-                <Upload className="w-8 h-8" />
+                <span className="text-3xl">📤</span>
               </div>
               <div>
                 <h2 className="text-3xl font-bold">Upload Tax Documents</h2>
@@ -353,7 +360,7 @@ function Dashboard() {
               <label className="cursor-pointer group">
                 <div className="flex flex-col items-center">
                   <div className="w-20 h-20 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                    <Upload className="w-10 h-10" />
+                    <span className="text-4xl">📤</span>
                   </div>
                   <h3 className="text-2xl font-bold mb-3 group-hover:text-cyan-400 transition-colors duration-300">
                     Choose Files or Drag & Drop
@@ -362,7 +369,7 @@ function Dashboard() {
                     Upload your W-2, 1099, 1098, and other tax documents for AI processing
                   </p>
                   <div className="inline-flex items-center gap-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white px-8 py-4 rounded-2xl font-bold text-lg group-hover:from-cyan-600 group-hover:to-purple-600 transition-all duration-300">
-                    <Zap className="w-5 h-5" />
+                    <span className="text-xl">⚡</span>
                     Select Files
                   </div>
                 </div>
@@ -395,21 +402,21 @@ function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {[
               {
-                icon: Edit,
+                icon: "📝",
                 title: "Manual Tax Filing",
                 description: "Complete control over your tax return process",
                 gradient: "from-blue-500 to-cyan-500",
                 action: () => console.log('Manual filing')
               },
               {
-                icon: Bot,
+                icon: "🤖",
                 title: "AI-Powered Filing",
                 description: "Upload documents and let AI handle the rest!",
                 gradient: "from-purple-500 to-pink-500",
                 action: () => setShowUploadForm(true)
               },
               {
-                icon: FileText,
+                icon: "📄",
                 title: "View All Returns",
                 description: "Access your complete tax return history",
                 gradient: "from-emerald-500 to-teal-500",
@@ -422,7 +429,7 @@ function Dashboard() {
                 onClick={item.action}
               >
                 <div className={`w-20 h-20 bg-gradient-to-r ${item.gradient} rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-2xl`}>
-                  <item.icon className="w-10 h-10 text-white" />
+                  <span className="text-4xl">{item.icon}</span>
                 </div>
                 <h3 className="text-xl font-bold mb-3 group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-purple-400 group-hover:bg-clip-text transition-all duration-300">
                   {item.title}
@@ -445,9 +452,9 @@ function Dashboard() {
             <div key={index} className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-300">
               <div className="flex items-center justify-between mb-4">
                 <div className={`w-12 h-12 bg-gradient-to-r ${stat.gradient} rounded-xl flex items-center justify-center`}>
-                  <stat.icon className="w-6 h-6 text-white" />
+                  <span className="text-2xl">{stat.icon}</span>
                 </div>
-                <TrendingUp className="w-5 h-5 text-green-400" />
+                <span className="text-2xl text-green-400">📈</span>
               </div>
               <h3 className="text-sm font-medium text-gray-400 mb-2">{stat.title}</h3>
               <p className="text-2xl font-bold text-white">{stat.value}</p>
@@ -460,7 +467,7 @@ function Dashboard() {
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-white" />
+                <span className="text-2xl">📄</span>
               </div>
               <div>
                 <h2 className="text-3xl font-bold">Your Documents</h2>
@@ -471,7 +478,7 @@ function Dashboard() {
               onClick={() => setShowUploadForm(true)} 
               className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-2xl hover:from-cyan-600 hover:to-purple-600 transition-all duration-300 font-semibold flex items-center gap-2"
             >
-              <Plus className="w-5 h-5" />
+              <span className="text-lg">➕</span>
               Upload Document
             </button>
           </div>
@@ -484,7 +491,7 @@ function Dashboard() {
               >
                 <div className="flex items-center mb-4">
                   <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mr-4">
-                    <FileText className="w-6 h-6 text-white" />
+                    <span className="text-2xl">📄</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-bold text-white truncate">
@@ -499,7 +506,7 @@ function Dashboard() {
                 {document.ocr_text ? (
                   <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-xl">
                     <div className="flex items-center gap-2 mb-1">
-                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400 text-lg">✅</span>
                       <p className="text-sm font-semibold text-green-300">AI-Ready Document</p>
                     </div>
                     <p className="text-xs text-green-400">Text extracted and ready for processing</p>
@@ -507,7 +514,7 @@ function Dashboard() {
                 ) : (
                   <div className="mb-4 p-3 bg-orange-500/20 border border-orange-500/30 rounded-xl">
                     <div className="flex items-center gap-2 mb-1">
-                      <AlertCircle className="w-4 h-4 text-orange-400" />
+                      <span className="text-orange-400 text-lg">⚠️</span>
                       <p className="text-sm font-semibold text-orange-300">Manual Processing Available</p>
                     </div>
                     <p className="text-xs text-orange-400">No text extracted - use manual entry option</p>
@@ -516,7 +523,7 @@ function Dashboard() {
                 
                 <div className="flex gap-2">
                   <button className="flex-1 px-3 py-2 bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm rounded-lg hover:bg-blue-500/30 transition-all duration-200 flex items-center justify-center gap-1">
-                    <Eye className="w-4 h-4" />
+                    <span>👁️</span>
                     View
                   </button>
                   <button 
@@ -526,11 +533,11 @@ function Dashboard() {
                     }}
                     className="flex-1 px-3 py-2 bg-green-500/20 border border-green-500/30 text-green-300 text-sm rounded-lg hover:bg-green-500/30 transition-all duration-200 flex items-center justify-center gap-1"
                   >
-                    <Edit className="w-4 h-4" />
+                    <span>📝</span>
                     Process
                   </button>
                   <button className="px-3 py-2 bg-red-500/20 border border-red-500/30 text-red-300 text-sm rounded-lg hover:bg-red-500/30 transition-all duration-200">
-                    <Trash2 className="w-4 h-4" />
+                    <span>🗑️</span>
                   </button>
                 </div>
               </div>
@@ -543,7 +550,7 @@ function Dashboard() {
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-white" />
+                <span className="text-2xl">📄</span>
               </div>
               <div>
                 <h2 className="text-3xl font-bold">Your Tax Returns</h2>
@@ -555,11 +562,11 @@ function Dashboard() {
                 onClick={() => setShowUploadForm(true)} 
                 className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 font-semibold flex items-center gap-2"
               >
-                <Bot className="w-5 h-5" />
+                <span className="text-lg">🤖</span>
                 Smart Filing
               </button>
               <button className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 font-semibold flex items-center gap-2">
-                <Edit className="w-5 h-5" />
+                <span className="text-lg">📝</span>
                 Manual Filing
               </button>
             </div>
@@ -576,7 +583,7 @@ function Dashboard() {
           ) : taxReturns.length === 0 ? (
             <div className="text-center py-16">
               <div className="w-24 h-24 bg-gradient-to-r from-gray-600 to-gray-700 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <FileText className="w-12 h-12 text-gray-300" />
+                <span className="text-5xl">📄</span>
               </div>
               <h3 className="text-2xl font-bold mb-4">Ready to file your taxes?</h3>
               <p className="text-gray-300 mb-8 max-w-md mx-auto">
@@ -587,11 +594,11 @@ function Dashboard() {
                   onClick={() => setShowUploadForm(true)} 
                   className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl hover:from-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-300 shadow-lg font-semibold text-lg"
                 >
-                  <Bot className="w-6 h-6" />
+                  <span className="text-2xl">🤖</span>
                   Smart Filing
                 </button>
                 <button className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl hover:from-blue-600 hover:to-cyan-600 transform hover:scale-105 transition-all duration-300 shadow-lg font-semibold text-lg">
-                  <Edit className="w-6 h-6" />
+                  <span className="text-2xl">📝</span>
                   Manual Filing
                 </button>
               </div>
@@ -620,7 +627,7 @@ function Dashboard() {
                       </span>
                       {taxReturn.auto_generated && (
                         <span className="px-3 py-1 rounded-full text-xs bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-300 font-semibold flex items-center gap-1">
-                          <Bot className="w-3 h-3" />
+                          <span>🤖</span>
                           AI
                         </span>
                       )}
@@ -630,7 +637,7 @@ function Dashboard() {
                   {taxReturn.auto_generated && (
                     <div className="mb-4 p-3 bg-purple-500/20 border border-purple-500/30 rounded-xl">
                       <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
-                        <Bot className="w-4 h-4" />
+                        <span>🤖</span>
                         AI-generated from: {taxReturn.source_document}
                       </p>
                     </div>
