@@ -12,19 +12,28 @@ function Dashboard() {
   const [showTaxForm, setShowTaxForm] = useState(false);
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [processingDocument, setProcessingDocument] = useState(false);
-  const [autoFilingEnabled, setAutoFilingEnabled] = useState(true); // Toggle for auto filing
+  const [autoFilingEnabled, setAutoFilingEnabled] = useState(true);
+  const [debugInfo, setDebugInfo] = useState(''); // Debug information
 
   useEffect(() => {
     fetchTaxReturns();
     fetchDocuments();
   }, []);
 
+  const addDebugInfo = (message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugInfo(prev => `${prev}\n[${timestamp}] ${message}`);
+    console.log(`[AUTO-FILING DEBUG] ${message}`);
+  };
+
   const fetchTaxReturns = async () => {
     try {
       const response = await apiService.getTaxReturns();
       setTaxReturns(response);
+      addDebugInfo(`Fetched ${response.length} tax returns`);
     } catch (error) {
       console.error('Error fetching tax returns:', error);
+      addDebugInfo(`Error fetching tax returns: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -34,23 +43,38 @@ function Dashboard() {
     try {
       const response = await apiService.getDocuments();
       setDocuments(response);
-      console.log('Documents fetched:', response);
+      addDebugInfo(`Fetched ${response.length} documents`);
+      
+      // Debug: Log document structure
+      if (response.length > 0) {
+        addDebugInfo(`Sample document structure: ${JSON.stringify(Object.keys(response[0]))}`);
+        addDebugInfo(`Has OCR text: ${!!response[0].ocr_text}`);
+      }
     } catch (error) {
       console.error('Error fetching documents:', error);
+      addDebugInfo(`Error fetching documents: ${error.message}`);
       setDocuments([]);
     }
   };
 
-  // Function to extract tax data from document OCR text
+  // Enhanced data extraction with more debugging
   const extractTaxDataFromDocument = (document) => {
+    addDebugInfo(`Starting extraction for document: ${document.filename}`);
+    
     const ocrText = document.ocr_text || '';
     const documentType = document.document_type || '';
     
-    console.log('Extracting tax data from:', documentType, ocrText.substring(0, 200));
+    addDebugInfo(`Document type: ${documentType}`);
+    addDebugInfo(`OCR text length: ${ocrText.length}`);
+    addDebugInfo(`OCR text preview: ${ocrText.substring(0, 200)}...`);
     
-    // Initialize tax data object
+    if (!ocrText) {
+      addDebugInfo('No OCR text found - cannot extract tax data');
+      return null;
+    }
+    
     const taxData = {
-      tax_year: new Date().getFullYear() - 1, // Default to previous year
+      tax_year: new Date().getFullYear() - 1,
       income: 0,
       withholdings: 0,
       deductions: 0,
@@ -58,81 +82,153 @@ function Dashboard() {
       document_source: document.filename || 'uploaded_document'
     };
 
-    // Extract data based on document type
-    if (documentType === 'w2' || ocrText.toLowerCase().includes('w-2') || ocrText.toLowerCase().includes('wage')) {
-      // Extract W-2 data
-      taxData.income = extractAmountFromText(ocrText, ['wages', 'salary', 'income', 'box 1']);
-      taxData.withholdings = extractAmountFromText(ocrText, ['federal', 'withholding', 'withheld', 'box 2']);
-      taxData.tax_year = extractYearFromText(ocrText) || taxData.tax_year;
+    // More aggressive text analysis
+    const text = ocrText.toLowerCase();
+    
+    // Look for W-2 indicators
+    if (text.includes('w-2') || text.includes('wage') || text.includes('employer') || documentType === 'w2') {
+      addDebugInfo('Detected as W-2 form');
       
-    } else if (documentType === '1099' || ocrText.toLowerCase().includes('1099')) {
-      // Extract 1099 data
-      taxData.income = extractAmountFromText(ocrText, ['income', 'earnings', 'amount', 'box 1']);
-      taxData.withholdings = extractAmountFromText(ocrText, ['backup', 'withholding', 'box 4']);
-      taxData.tax_year = extractYearFromText(ocrText) || taxData.tax_year;
+      // Extract wages (box 1)
+      const wages = extractAmountFromText(ocrText, [
+        'wages', 'tips', 'other compensation', 'box 1', 'wages tips',
+        'federal wages', 'gross wages', 'total wages'
+      ]);
       
-    } else if (documentType === '1098' || ocrText.toLowerCase().includes('1098')) {
-      // Extract 1098 mortgage interest data
-      const mortgageInterest = extractAmountFromText(ocrText, ['interest', 'paid', 'box 1']);
-      taxData.deductions = mortgageInterest; // This would be itemized deduction
-      taxData.tax_year = extractYearFromText(ocrText) || taxData.tax_year;
+      // Extract federal withholding (box 2)
+      const withholdings = extractAmountFromText(ocrText, [
+        'federal income tax withheld', 'box 2', 'federal tax',
+        'income tax withheld', 'federal withholding', 'tax withheld'
+      ]);
       
-    } else {
-      // Generic document - try to find any financial amounts
-      taxData.income = extractAmountFromText(ocrText, ['income', 'salary', 'wages', 'earnings']);
-      taxData.withholdings = extractAmountFromText(ocrText, ['tax', 'withholding', 'withheld']);
-      taxData.deductions = extractAmountFromText(ocrText, ['deduction', 'expense']);
+      taxData.income = wages;
+      taxData.withholdings = withholdings;
+      
+      addDebugInfo(`W-2 extracted - Income: $${wages}, Withholdings: $${withholdings}`);
+    }
+    
+    // Look for 1099 indicators
+    else if (text.includes('1099') || text.includes('miscellaneous income') || documentType === '1099') {
+      addDebugInfo('Detected as 1099 form');
+      
+      const income = extractAmountFromText(ocrText, [
+        'nonemployee compensation', 'box 1', 'miscellaneous income',
+        'income', 'compensation', 'amount paid'
+      ]);
+      
+      const backupWithholding = extractAmountFromText(ocrText, [
+        'backup withholding', 'box 4', 'federal income tax withheld'
+      ]);
+      
+      taxData.income = income;
+      taxData.withholdings = backupWithholding;
+      
+      addDebugInfo(`1099 extracted - Income: $${income}, Backup withholding: $${backupWithholding}`);
+    }
+    
+    // Generic fallback - look for any monetary amounts
+    else {
+      addDebugInfo('Generic document - searching for any financial amounts');
+      
+      // Find all dollar amounts in the document
+      const allAmounts = findAllDollarAmounts(ocrText);
+      addDebugInfo(`Found ${allAmounts.length} dollar amounts: ${allAmounts.join(', ')}`);
+      
+      if (allAmounts.length > 0) {
+        // Use the largest amount as potential income
+        taxData.income = Math.max(...allAmounts);
+        addDebugInfo(`Using largest amount as income: $${taxData.income}`);
+      }
     }
 
+    // Extract year
+    const year = extractYearFromText(ocrText);
+    if (year) {
+      taxData.tax_year = year;
+      addDebugInfo(`Extracted tax year: ${year}`);
+    }
+
+    addDebugInfo(`Final extracted data: ${JSON.stringify(taxData)}`);
     return taxData;
   };
 
-  // Helper function to extract monetary amounts from text
+  // Enhanced amount extraction
   const extractAmountFromText = (text, keywords) => {
+    addDebugInfo(`Searching for keywords: ${keywords.join(', ')}`);
+    
     const lines = text.split('\n');
+    let foundAmounts = [];
     
     for (const keyword of keywords) {
-      for (const line of lines) {
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         if (line.toLowerCase().includes(keyword.toLowerCase())) {
-          // Look for dollar amounts in the line
-          const amounts = line.match(/\$?[\d,]+\.?\d*/g);
-          if (amounts) {
-            // Return the largest amount found (assuming it's the main figure)
-            const numericAmounts = amounts.map(amt => 
-              parseFloat(amt.replace(/[$,]/g, '')) || 0
-            );
-            const maxAmount = Math.max(...numericAmounts);
-            if (maxAmount > 0) return maxAmount;
+          addDebugInfo(`Found keyword "${keyword}" in line: ${line.trim()}`);
+          
+          // Look in current line and next few lines
+          const searchLines = lines.slice(i, i + 3).join(' ');
+          const amounts = findAllDollarAmounts(searchLines);
+          
+          if (amounts.length > 0) {
+            foundAmounts.push(...amounts);
+            addDebugInfo(`Found amounts for "${keyword}": ${amounts.join(', ')}`);
           }
         }
       }
     }
     
-    // Fallback: look for any dollar amount in the entire text
-    const allAmounts = text.match(/\$[\d,]+\.?\d*/g);
-    if (allAmounts && allAmounts.length > 0) {
-      const amounts = allAmounts.map(amt => parseFloat(amt.replace(/[$,]/g, '')) || 0);
-      return Math.max(...amounts);
+    if (foundAmounts.length > 0) {
+      const maxAmount = Math.max(...foundAmounts);
+      addDebugInfo(`Returning max amount: $${maxAmount}`);
+      return maxAmount;
     }
     
+    addDebugInfo('No amounts found for keywords');
     return 0;
   };
 
-  // Helper function to extract year from text
+  // Helper to find all dollar amounts in text
+  const findAllDollarAmounts = (text) => {
+    // Look for various dollar amount patterns
+    const patterns = [
+      /\$[\d,]+\.?\d*/g,           // $1,234.56
+      /[\d,]+\.?\d*\s*dollars?/gi, // 1234.56 dollars
+      /USD\s*[\d,]+\.?\d*/gi,      // USD 1234.56
+      /\b[\d,]+\.\d{2}\b/g,        // 1234.56 (with 2 decimal places)
+      /\b[\d,]{4,}\b/g             // 1234 or larger (no decimals)
+    ];
+    
+    let amounts = [];
+    
+    for (const pattern of patterns) {
+      const matches = text.match(pattern) || [];
+      for (const match of matches) {
+        const cleaned = match.replace(/[$,USD\s]/gi, '').replace(/dollars?/gi, '');
+        const number = parseFloat(cleaned);
+        
+        // Only include reasonable amounts (between $1 and $10M)
+        if (!isNaN(number) && number >= 1 && number <= 10000000) {
+          amounts.push(number);
+        }
+      }
+    }
+    
+    return amounts;
+  };
+
   const extractYearFromText = (text) => {
-    const yearMatch = text.match(/20\d{2}/g);
+    const yearMatch = text.match(/20(1[5-9]|2[0-5])/g); // Years 2015-2025
     if (yearMatch && yearMatch.length > 0) {
-      // Return the most recent year found
       const years = yearMatch.map(y => parseInt(y));
       return Math.max(...years);
     }
     return null;
   };
 
-  // Function to automatically create tax return from document data
   const createAutoTaxReturn = async (extractedData) => {
     try {
       setProcessingDocument(true);
+      addDebugInfo('Starting auto tax return creation...');
       
       console.log('Creating auto tax return with data:', extractedData);
       
@@ -140,7 +236,8 @@ function Dashboard() {
       const existingReturn = taxReturns.find(tr => tr.tax_year === extractedData.tax_year);
       
       if (existingReturn) {
-        // Update existing return by adding the new income/withholdings
+        addDebugInfo(`Found existing return for ${extractedData.tax_year}, updating...`);
+        
         const updatedData = {
           ...existingReturn,
           income: (existingReturn.income || 0) + extractedData.income,
@@ -150,17 +247,18 @@ function Dashboard() {
         };
         
         const response = await apiService.updateTaxReturn(existingReturn.id, updatedData);
-        console.log('Updated existing tax return:', response);
+        addDebugInfo('Successfully updated existing tax return');
         
-        alert(`Tax return for ${extractedData.tax_year} updated with new document data!\nIncome: +$${extractedData.income.toLocaleString()}\nWithholdings: +$${extractedData.withholdings.toLocaleString()}`);
+        alert(`Tax return for ${extractedData.tax_year} updated!\nIncome: +$${extractedData.income.toLocaleString()}\nWithholdings: +$${extractedData.withholdings.toLocaleString()}`);
         
       } else {
-        // Create new tax return
+        addDebugInfo(`Creating new return for ${extractedData.tax_year}...`);
+        
         const newTaxReturn = {
           tax_year: extractedData.tax_year,
           income: extractedData.income,
           withholdings: extractedData.withholdings,
-          deductions: Math.max(extractedData.deductions, 12550), // Use standard deduction if higher
+          deductions: Math.max(extractedData.deductions, 12550),
           filing_status: extractedData.filing_status,
           status: 'draft',
           auto_generated: true,
@@ -168,16 +266,16 @@ function Dashboard() {
         };
         
         const response = await apiService.createTaxReturn(newTaxReturn);
-        console.log('Created new auto tax return:', response);
+        addDebugInfo('Successfully created new tax return');
         
-        alert(`New tax return automatically created for ${extractedData.tax_year}!\nIncome: $${extractedData.income.toLocaleString()}\nWithholdings: $${extractedData.withholdings.toLocaleString()}\n\nPlease review and complete the filing.`);
+        alert(`New tax return created for ${extractedData.tax_year}!\nIncome: $${extractedData.income.toLocaleString()}\nWithholdings: $${extractedData.withholdings.toLocaleString()}`);
       }
       
-      // Refresh tax returns to show the new/updated data
       await fetchTaxReturns();
       
     } catch (error) {
       console.error('Error creating auto tax return:', error);
+      addDebugInfo(`Error creating tax return: ${error.message}`);
       alert('Failed to automatically create tax return. Please file manually.');
     } finally {
       setProcessingDocument(false);
@@ -203,55 +301,66 @@ function Dashboard() {
 
     try {
       setProcessingDocument(true);
+      addDebugInfo(`Uploading file: ${file.name} (${file.type})`);
       
-      // Upload document
       const uploadResponse = await apiService.uploadDocument(formData);
-      console.log('Document uploaded:', uploadResponse);
+      addDebugInfo(`Upload successful. Response: ${JSON.stringify(uploadResponse, null, 2)}`);
       
       alert('Document uploaded successfully!');
       setShowUploadForm(false);
       
-      // Refresh documents list
       await fetchDocuments();
       
-      // If auto filing is enabled and document has OCR text, process it
-      if (autoFilingEnabled && uploadResponse.ocr_text) {
-        console.log('Auto filing enabled, processing document...');
+      if (autoFilingEnabled) {
+        addDebugInfo('Auto filing enabled - processing document...');
         
-        // Wait a moment for OCR processing to complete
+        // Wait for OCR processing
         setTimeout(async () => {
           try {
-            // Extract tax data from the uploaded document
-            const extractedData = extractTaxDataFromDocument(uploadResponse);
+            // Get the uploaded document with OCR text
+            const documents = await apiService.getDocuments();
+            const latestDocument = documents[0]; // Assuming newest first
             
-            // Only auto-file if we extracted meaningful data
-            if (extractedData.income > 0 || extractedData.withholdings > 0) {
-              const shouldAutoFile = window.confirm(
-                `Document analysis complete!\n\n` +
-                `Detected Income: $${extractedData.income.toLocaleString()}\n` +
-                `Detected Withholdings: $${extractedData.withholdings.toLocaleString()}\n` +
-                `Tax Year: ${extractedData.tax_year}\n\n` +
-                `Would you like to automatically create/update your tax return with this data?`
-              );
+            addDebugInfo(`Latest document: ${JSON.stringify(latestDocument, null, 2)}`);
+            
+            if (latestDocument && latestDocument.ocr_text) {
+              const extractedData = extractTaxDataFromDocument(latestDocument);
               
-              if (shouldAutoFile) {
-                await createAutoTaxReturn(extractedData);
+              if (extractedData && (extractedData.income > 0 || extractedData.withholdings > 0)) {
+                const shouldAutoFile = window.confirm(
+                  `Document analysis complete!\n\n` +
+                  `Detected Income: $${extractedData.income.toLocaleString()}\n` +
+                  `Detected Withholdings: $${extractedData.withholdings.toLocaleString()}\n` +
+                  `Tax Year: ${extractedData.tax_year}\n\n` +
+                  `Would you like to automatically create/update your tax return?\n\n` +
+                  `(Check console for detailed extraction log)`
+                );
+                
+                if (shouldAutoFile) {
+                  await createAutoTaxReturn(extractedData);
+                }
+              } else {
+                addDebugInfo('No significant tax data found');
+                alert('No tax data could be extracted from this document. Please check the debug console for details.');
               }
             } else {
-              console.log('No significant tax data found in document');
+              addDebugInfo('No OCR text available');
+              alert('Document uploaded but no text could be extracted. OCR processing may have failed.');
             }
           } catch (error) {
+            addDebugInfo(`Error in processing: ${error.message}`);
             console.error('Error in auto filing process:', error);
           } finally {
             setProcessingDocument(false);
           }
-        }, 2000);
+        }, 3000); // Wait 3 seconds for OCR
       } else {
         setProcessingDocument(false);
       }
       
     } catch (error) {
       console.error('Error uploading document:', error);
+      addDebugInfo(`Upload error: ${error.message}`);
       alert('Failed to upload document');
       setProcessingDocument(false);
     }
@@ -272,7 +381,6 @@ function Dashboard() {
     }
   };
 
-  // Function to manually trigger auto-filing for an existing document
   const processDocumentForTaxFiling = async (document) => {
     if (!document.ocr_text) {
       alert('This document has no OCR text available for processing.');
@@ -281,22 +389,24 @@ function Dashboard() {
 
     try {
       setProcessingDocument(true);
+      addDebugInfo(`Manual processing of document: ${document.filename}`);
       
       const extractedData = extractTaxDataFromDocument(document);
       
-      if (extractedData.income > 0 || extractedData.withholdings > 0) {
+      if (extractedData && (extractedData.income > 0 || extractedData.withholdings > 0)) {
         const shouldProcess = window.confirm(
           `Process this document for tax filing?\n\n` +
           `Detected Income: $${extractedData.income.toLocaleString()}\n` +
           `Detected Withholdings: $${extractedData.withholdings.toLocaleString()}\n` +
-          `Tax Year: ${extractedData.tax_year}`
+          `Tax Year: ${extractedData.tax_year}\n\n` +
+          `Check console for detailed extraction log.`
         );
         
         if (shouldProcess) {
           await createAutoTaxReturn(extractedData);
         }
       } else {
-        alert('No significant tax data found in this document.');
+        alert('No significant tax data found in this document. Check console for details.');
       }
     } catch (error) {
       console.error('Error processing document:', error);
@@ -306,135 +416,9 @@ function Dashboard() {
     }
   };
 
-  // Your existing downloadTaxReturn function stays the same...
+  // Your existing downloadTaxReturn function...
   const downloadTaxReturn = async (taxReturn) => {
-    try {
-      if (typeof taxReturn === 'number' || typeof taxReturn === 'string') {
-        alert('Error: Tax return data not available. Please refresh the page and try again.');
-        console.error('Received ID instead of tax return object:', taxReturn);
-        return;
-      }
-
-      if (!taxReturn || typeof taxReturn !== 'object') {
-        alert('Error: Invalid tax return data. Please try again.');
-        console.error('Invalid tax return data:', taxReturn);
-        return;
-      }
-
-      console.log('Processing tax return:', taxReturn);
-
-      const doc = new jsPDF();
-      
-      doc.setFontSize(20);
-      doc.setFont(undefined, 'bold');
-      doc.text('TAX RETURN SUMMARY', 105, 30, { align: 'center' });
-      
-      doc.setFontSize(16);
-      doc.text(`Tax Year: ${taxReturn.tax_year || 'N/A'}`, 20, 50);
-      
-      doc.setFontSize(12);
-      let yPosition = 70;
-      
-      doc.text(`Taxpayer: ${user?.full_name || 'N/A'}`, 20, yPosition);
-      yPosition += 10;
-      
-      if (taxReturn.filing_status) {
-        const filingStatus = String(taxReturn.filing_status).replace(/_/g, ' ').toUpperCase();
-        doc.text(`Filing Status: ${filingStatus}`, 20, yPosition);
-        yPosition += 10;
-      }
-      
-      if (taxReturn.spouse_name) {
-        doc.text(`Spouse Name: ${taxReturn.spouse_name}`, 20, yPosition);
-        yPosition += 10;
-      }
-      
-      yPosition += 10;
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      doc.text('INCOME INFORMATION', 20, yPosition);
-      yPosition += 15;
-      
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'normal');
-      
-      const income = Number(taxReturn.income) || 0;
-      const deductions = Number(taxReturn.deductions) || 0;
-      const taxOwed = Number(taxReturn.tax_owed) || 0;
-      const withholdings = Number(taxReturn.withholdings) || 0;
-      const refundAmount = Number(taxReturn.refund_amount) || 0;
-      const amountOwed = Number(taxReturn.amount_owed) || 0;
-      
-      doc.text(`Total Income: $${income.toLocaleString()}`, 20, yPosition);
-      yPosition += 10;
-      doc.text(`Deductions: $${deductions.toLocaleString()}`, 20, yPosition);
-      yPosition += 10;
-      doc.text(`Taxable Income: $${Math.max(0, income - deductions).toLocaleString()}`, 20, yPosition);
-      yPosition += 10;
-      
-      yPosition += 10;
-      doc.setFontSize(14);
-      doc.setFont(undefined, 'bold');
-      doc.text('TAX CALCULATION', 20, yPosition);
-      yPosition += 15;
-      
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'normal');
-      doc.text(`Tax Owed: $${taxOwed.toFixed(2)}`, 20, yPosition);
-      yPosition += 10;
-      doc.text(`Tax Withholdings: $${withholdings.toFixed(2)}`, 20, yPosition);
-      yPosition += 10;
-      
-      yPosition += 20;
-      doc.setFontSize(16);
-      doc.setFont(undefined, 'bold');
-      
-      if (refundAmount > 0) {
-        doc.setTextColor(0, 128, 0);
-        doc.text(`REFUND AMOUNT: $${refundAmount.toFixed(2)}`, 20, yPosition);
-      } else if (amountOwed > 0) {
-        doc.setTextColor(128, 0, 0);
-        doc.text(`AMOUNT OWED: $${amountOwed.toFixed(2)}`, 20, yPosition);
-      } else {
-        doc.setTextColor(0, 128, 0);
-        doc.text(`NO TAX DUE`, 20, yPosition);
-      }
-      
-      doc.setTextColor(0, 0, 0);
-      
-      yPosition += 30;
-      doc.setFontSize(10);
-      doc.setFont(undefined, 'normal');
-      doc.text(`Status: ${(taxReturn.status || 'DRAFT').toUpperCase()}`, 20, yPosition);
-      yPosition += 10;
-      doc.text(`Created: ${taxReturn.created_at ? new Date(taxReturn.created_at).toLocaleDateString() : 'N/A'}`, 20, yPosition);
-      yPosition += 10;
-      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, yPosition);
-      
-      // Add auto-generated indicator if applicable
-      if (taxReturn.auto_generated) {
-        yPosition += 10;
-        doc.text(`Auto-generated from: ${taxReturn.source_document || 'uploaded documents'}`, 20, yPosition);
-      }
-      
-      yPosition += 20;
-      doc.setFontSize(8);
-      doc.text('Generated by TaxBox.AI - For informational purposes only', 20, yPosition);
-      doc.text('Please consult with a tax professional for official tax filing.', 20, yPosition + 10);
-      
-      const safeId = taxReturn.id || Date.now();
-      const safeYear = taxReturn.tax_year || 'unknown';
-      const filename = `tax_return_${safeYear}_${safeId}.pdf`;
-      
-      doc.save(filename);
-      
-      console.log('PDF generated successfully:', filename);
-      alert('Tax return PDF downloaded successfully!');
-      
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      alert(`Failed to generate PDF: ${error.message}`);
-    }
+    // ... (keep your existing PDF function)
   };
 
   const navigateToTaxReturns = () => {
@@ -448,6 +432,20 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 py-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Debug Console */}
+        <div className="bg-gray-900 text-green-400 p-4 rounded-lg mb-6 font-mono text-xs max-h-40 overflow-y-auto">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-white font-bold">🐛 Auto Filing Debug Console</h3>
+            <button 
+              onClick={() => setDebugInfo('')}
+              className="text-red-400 hover:text-red-300"
+            >
+              Clear
+            </button>
+          </div>
+          <pre className="whitespace-pre-wrap">{debugInfo || 'Debug information will appear here...'}</pre>
+        </div>
+
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <div className="flex justify-between items-center flex-wrap gap-4">
@@ -504,415 +502,9 @@ function Dashboard() {
           </div>
         )}
 
-        {/* Tax Form */}
-        {showTaxForm && (
-          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <TaxForm onSuccess={handleTaxFormSuccess} />
-          </div>
-        )}
-
-        {/* Upload Form */}
-        {showUploadForm && (
-          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Upload Tax Documents</h2>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-              <p className="text-sm text-yellow-800">
-                <strong>Auto Filing {autoFilingEnabled ? 'Enabled' : 'Disabled'}:</strong> 
-                {autoFilingEnabled 
-                  ? ' We\'ll automatically analyze your documents and create/update tax returns!' 
-                  : ' Upload documents for manual processing only.'
-                }
-              </p>
-            </div>
-            <div>
-              <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                Choose File
-                <input
-                  type="file"
-                  onChange={handleUploadDocument}
-                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                  className="hidden"
-                  disabled={processingDocument}
-                />
-              </label>
-              <p className="text-sm text-gray-500 mt-2">
-                Accepted formats: PDF, JPG, PNG, DOC, DOCX<br />
-                <strong>Supported forms:</strong> W-2, 1099, 1098, and other tax documents
-              </p>
-            </div>
-            <button 
-              onClick={() => setShowUploadForm(false)} 
-              className="mt-4 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        {!showTaxForm && !showUploadForm && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div className="bg-white rounded-lg shadow-sm border p-6 text-center hover:shadow-md transition duration-200">
-              <div className="text-4xl mb-4">📝</div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Manual Tax Filing</h3>
-              <p className="text-gray-600 mb-4">Start your tax return manually for complete control</p>
-              <button 
-                onClick={navigateToCreateTaxReturn} 
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200"
-              >
-                Start Manual Filing
-              </button>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-sm border p-6 text-center hover:shadow-md transition duration-200">
-              <div className="text-4xl mb-4">🤖</div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Auto Tax Filing</h3>
-              <p className="text-gray-600 mb-4">Upload documents and we'll file your taxes automatically!</p>
-              <button 
-                onClick={() => setShowUploadForm(true)} 
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200"
-              >
-                Upload & Auto File
-              </button>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow-sm border p-6 text-center hover:shadow-md transition duration-200">
-              <div className="text-4xl mb-4">💰</div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">View All Returns</h3>
-              <p className="text-gray-600 mb-4">See all your tax returns and their status</p>
-              <button 
-                onClick={navigateToTaxReturns} 
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200"
-              >
-                View Returns
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Uploaded Documents Section */}
-        {!showTaxForm && !showUploadForm && (
-          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Uploaded Documents</h2>
-              <button 
-                onClick={() => setShowUploadForm(true)} 
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200"
-              >
-                Upload New Document
-              </button>
-            </div>
-            
-            {documents.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-gray-400 mb-4">
-                  <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No documents uploaded yet</h3>
-                <p className="text-gray-600 mb-4">Upload your tax documents to get started with auto filing!</p>
-                <button 
-                  onClick={() => setShowUploadForm(true)} 
-                  className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200"
-                >
-                  Upload Your First Document
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {documents.map((document) => (
-                  <div key={document.id} className="bg-gray-50 rounded-lg p-4 border">
-                    <div className="flex items-center mb-3">
-                      <div className="text-2xl mr-3">
-                        {document.file_type?.toLowerCase().includes('pdf') ? '📄' : 
-                         document.file_type?.toLowerCase().includes('image') ? '🖼️' : 
-                         document.file_type?.toLowerCase().includes('doc') ? '📝' : '📎'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-gray-900 truncate">
-                          {document.filename || document.original_name || 'Unknown File'}
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                          {document.file_type || 'Unknown Type'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="mb-3">
-                      <p className="text-xs text-gray-600">
-                        <strong>Uploaded:</strong> {document.uploaded_at ? new Date(document.uploaded_at).toLocaleDateString() : 'Unknown'}
-                      </p>
-                      {document.file_size && (
-                        <p className="text-xs text-gray-600">
-                          <strong>Size:</strong> {(document.file_size / 1024).toFixed(1)} KB
-                        </p>
-                      )}
-                    </div>
-                    
-                    {/* OCR Results */}
-                    {document.ocr_text && (
-                      <div className="mb-3 p-2 bg-blue-50 rounded border border-blue-200">
-                        <p className="text-xs font-medium text-blue-900 mb-1">Extracted Text (OCR):</p>
-                        <p className="text-xs text-blue-700">
-                          {document.ocr_text.substring(0, 100)}
-                          {document.ocr_text.length > 100 ? '...' : ''}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Document Category */}
-                    {document.document_type && (
-                      <div className="mb-3">
-                        <span className="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded">
-                          {document.document_type.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </div>
-                    )}
-                    
-                    <div className="flex gap-2 flex-wrap">
-                      {document.file_url && (
-                        <a 
-                          href={document.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm text-center rounded hover:bg-blue-700 transition duration-200"
-                        >
-                          View
-                        </a>
-                      )}
-                      
-                      {/* Auto Filing Button */}
-                      {document.ocr_text && (
-                        <button 
-                          onClick={() => processDocumentForTaxFiling(document)}
-                          disabled={processingDocument}
-                          className="px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition duration-200 disabled:opacity-50"
-                        >
-                          🤖 Auto File
-                        </button>
-                      )}
-                      
-                      <button 
-                        onClick={() => handleDeleteDocument(document.id)}
-                        className="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition duration-200"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            
-            {/* Auto Filing Info */}
-            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h4 className="text-sm font-medium text-green-900 mb-2">🤖 Auto Filing Features:</h4>
-              <ul className="text-xs text-green-700 space-y-1">
-                <li>• Automatically detects W-2, 1099, and 1098 forms</li>
-                <li>• Extracts income, withholdings, and deduction data</li>
-                <li>• Creates or updates tax returns automatically</li>
-                <li>• Uses OCR technology to read document text</li>
-                <li>• You can review and edit before final submission</li>
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {/* Tax Returns History */}
-        {!showTaxForm && !showUploadForm && (
-          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Recent Tax Returns</h2>
-              <div className="flex gap-3">
-                <button 
-                  onClick={navigateToCreateTaxReturn} 
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200"
-                >
-                  File New Return
-                </button>
-                <button 
-                  onClick={navigateToTaxReturns} 
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200"
-                >
-                  View All
-                </button>
-              </div>
-            </div>
-            
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-gray-600 mt-2">Loading tax returns...</p>
-              </div>
-            ) : taxReturns.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-gray-400 mb-4">
-                  <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No tax returns found</h3>
-                <p className="text-gray-600 mb-4">Upload documents for auto filing or start manually!</p>
-                <div className="flex gap-3 justify-center">
-                  <button 
-                    onClick={() => setShowUploadForm(true)} 
-                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200"
-                  >
-                    Upload for Auto Filing
-                  </button>
-                  <button 
-                    onClick={navigateToCreateTaxReturn} 
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200"
-                  >
-                    Manual Filing
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {taxReturns.slice(0, 4).map((taxReturn) => (
-                  <div key={taxReturn.id} className="bg-gray-50 rounded-lg p-4 border">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-lg font-semibold text-gray-900">Tax Year: {taxReturn.tax_year}</h3>
-                      <div className="flex gap-2">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          taxReturn.status === 'draft' 
-                            ? 'bg-yellow-100 text-yellow-800' 
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {taxReturn.status.toUpperCase()}
-                        </span>
-                        {taxReturn.auto_generated && (
-                          <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
-                            🤖 AUTO
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Auto-generated indicator */}
-                    {taxReturn.auto_generated && (
-                      <div className="mb-3 p-2 bg-purple-50 rounded border border-purple-200">
-                        <p className="text-xs font-medium text-purple-900">
-                          🤖 Auto-generated from: {taxReturn.source_document || 'uploaded documents'}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Display Filing Status */}
-                    <div className="mb-3 p-3 bg-blue-50 rounded border border-blue-200">
-                      <p className="text-sm font-medium text-blue-900">
-                        Filing Status: {taxReturn.filing_status ? 
-                          taxReturn.filing_status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : 
-                          'Not specified'
-                        }
-                      </p>
-                      {taxReturn.spouse_name && (
-                        <p className="text-sm text-blue-700">Spouse: {taxReturn.spouse_name}</p>
-                      )}
-                      {taxReturn.qualifying_person_name && (
-                        <p className="text-sm text-blue-700">Qualifying Person: {taxReturn.qualifying_person_name}</p>
-                      )}
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 mb-3">
-                      <div>
-                        <p className="text-sm text-gray-600">Income</p>
-                        <p className="font-semibold">${taxReturn.income?.toLocaleString() || '0'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Deductions</p>
-                        <p className="font-semibold">${taxReturn.deductions?.toLocaleString() || '0'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Tax Owed</p>
-                        <p className="font-semibold">${taxReturn.tax_owed?.toFixed(2) || '0.00'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Withholdings</p>
-                        <p className="font-semibold">${taxReturn.withholdings?.toFixed(2) || '0.00'}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="mb-4 p-3 rounded-lg border-2 border-dashed">
-                      {(taxReturn.refund_amount || 0) > 0 ? (
-                        <p className="text-green-700 font-bold text-center">
-                          💰 Refund: ${taxReturn.refund_amount?.toFixed(2) || '0.00'}
-                        </p>
-                      ) : (
-                        <p className="text-red-700 font-bold text-center">
-                          💸 Amount Owed: ${taxReturn.amount_owed?.toFixed(2) || '0.00'}
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="flex gap-2 flex-wrap">
-                      <button 
-                        onClick={() => window.location.href = `/tax-returns/view/${taxReturn.id}`}
-                        className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition duration-200"
-                      >
-                        View Details
-                      </button>
-                      {taxReturn.status === 'draft' && (
-                        <button 
-                          onClick={() => window.location.href = `/tax-returns/edit/${taxReturn.id}`}
-                          className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition duration-200"
-                        >
-                          Continue
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => downloadTaxReturn(taxReturn)}
-                        className="px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition duration-200"
-                      >
-                        📥
-                      </button>
-                    </div>
-                    
-                    <p className="text-xs text-gray-500 mt-3">
-                      Created: {new Date(taxReturn.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Summary Stats */}
-        {!showTaxForm && !showUploadForm && taxReturns.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Tax Summary</h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <h3 className="text-lg font-semibold text-blue-900">Total Returns</h3>
-                <p className="text-3xl font-bold text-blue-600">{taxReturns.length}</p>
-              </div>
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <h3 className="text-lg font-semibold text-green-900">Total Refunds</h3>
-                <p className="text-3xl font-bold text-green-600">
-                  ${taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0).toFixed(2)}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-lg font-semibold text-gray-900">Total Income</h3>
-                <p className="text-3xl font-bold text-gray-600">
-                  ${taxReturns.reduce((sum, tr) => sum + (tr.income || 0), 0).toLocaleString()}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <h3 className="text-lg font-semibold text-purple-900">Auto Generated</h3>
-                <p className="text-3xl font-bold text-purple-600">
-                  {taxReturns.filter(tr => tr.auto_generated).length}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Rest of your existing JSX... */}
+        {/* Upload Form, Quick Actions, Documents, Tax Returns, etc. */}
+        
       </div>
     </div>
   );
