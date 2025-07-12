@@ -44,6 +44,18 @@ function Dashboard() {
     document_type: 'w2'
   });
 
+  // Helper function to safely convert to number and format
+  const safeToFixed = (value, decimals = 2) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? '0.00' : num.toFixed(decimals);
+  };
+
+  // Helper function to safely convert to number
+  const safeToNumber = (value) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  };
+
   const handleUploadDocument = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -128,12 +140,12 @@ function Dashboard() {
     const existingReturn = taxReturns.find(tr => tr.tax_year === extractedData.tax_year);
     
     if (existingReturn) {
-      // Update existing return
+      // Update existing return - ensure all values are numbers
       const updatedReturn = {
         ...existingReturn,
-        income: (existingReturn.income || 0) + extractedData.income,
-        withholdings: (existingReturn.withholdings || 0) + extractedData.withholdings,
-        deductions: Math.max(existingReturn.deductions || 0, extractedData.deductions),
+        income: safeToNumber(existingReturn.income) + safeToNumber(extractedData.income),
+        withholdings: safeToNumber(existingReturn.withholdings) + safeToNumber(extractedData.withholdings),
+        deductions: Math.max(safeToNumber(existingReturn.deductions), safeToNumber(extractedData.deductions)),
         source_document: `${existingReturn.source_document}, ${sourceDocument.filename}`
       };
       
@@ -143,15 +155,19 @@ function Dashboard() {
       
       alert(`✅ Tax return for ${extractedData.tax_year} updated!\n\nAdded:\n• Income: +${extractedData.income.toLocaleString()}\n• Withholdings: +${extractedData.withholdings.toLocaleString()}\n\nTotal Income: ${updatedReturn.income.toLocaleString()}`);
     } else {
-      // Create new return
+      // Create new return - ensure all values are numbers
+      const income = safeToNumber(extractedData.income);
+      const withholdings = safeToNumber(extractedData.withholdings);
+      const deductions = safeToNumber(extractedData.deductions);
+      
       const newReturn = {
         id: taxReturns.length + 1,
         tax_year: extractedData.tax_year,
-        income: extractedData.income,
-        withholdings: extractedData.withholdings,
-        deductions: extractedData.deductions,
-        tax_owed: Math.max(0, (extractedData.income - extractedData.deductions) * 0.22 - extractedData.withholdings),
-        refund_amount: Math.max(0, extractedData.withholdings - (extractedData.income - extractedData.deductions) * 0.22),
+        income: income,
+        withholdings: withholdings,
+        deductions: deductions,
+        tax_owed: Math.max(0, (income - deductions) * 0.22 - withholdings),
+        refund_amount: 0,
         amount_owed: 0,
         status: 'draft',
         auto_generated: true,
@@ -177,20 +193,37 @@ function Dashboard() {
 
   const handleManualTaxEntry = (e) => {
     e.preventDefault();
+    
+    // Ensure all values are converted to numbers
+    const income = safeToNumber(manualTaxData.income);
+    const withholdings = safeToNumber(manualTaxData.withholdings);
+    const deductions = safeToNumber(manualTaxData.deductions) || 12550;
+    
     const newReturn = {
       id: taxReturns.length + 1,
       tax_year: parseInt(manualTaxData.tax_year),
-      income: parseFloat(manualTaxData.income) || 0,
-      withholdings: parseFloat(manualTaxData.withholdings) || 0,
-      deductions: parseFloat(manualTaxData.deductions) || 12550,
+      income: income,
+      withholdings: withholdings,
+      deductions: deductions,
       tax_owed: 0,
       refund_amount: 0,
       amount_owed: 0,
       status: 'draft',
-      auto_generated: true,
+      auto_generated: false,
       source_document: currentDocument?.filename || 'manual_entry',
       created_at: new Date().toISOString()
     };
+    
+    // Calculate refund vs owed
+    const taxOwed = (income - deductions) * 0.22;
+    if (withholdings > taxOwed) {
+      newReturn.refund_amount = withholdings - taxOwed;
+      newReturn.amount_owed = 0;
+    } else {
+      newReturn.refund_amount = 0;
+      newReturn.amount_owed = taxOwed - withholdings;
+    }
+    
     setTaxReturns(prev => [newReturn, ...prev]);
     setShowManualEntry(false);
     setCurrentDocument(null);
@@ -216,7 +249,7 @@ function Dashboard() {
 
   const stats = [
     { title: 'Total Returns', value: taxReturns.length, icon: '📄' },
-    { title: 'Total Refunds', value: `$${taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0).toLocaleString()}`, icon: '💰' },
+    { title: 'Total Refunds', value: `$${taxReturns.reduce((sum, tr) => sum + safeToNumber(tr.refund_amount), 0).toLocaleString()}`, icon: '💰' },
     { title: 'AI Generated', value: taxReturns.filter(tr => tr.auto_generated).length, icon: '🤖' },
     { title: 'Documents', value: documents.length, icon: '📤' }
   ];
@@ -709,7 +742,7 @@ function Dashboard() {
                 description: "Access your complete tax return history",
                 gradient: "linear-gradient(135deg, #10b981, #14b8a6)",
                 action: () => {
-                  alert(`You have ${taxReturns.length} tax returns:\n\n${taxReturns.map(tr => `• ${tr.tax_year}: ${tr.status} - ${tr.income.toLocaleString()}`).join('\n')}`);
+                  alert(`You have ${taxReturns.length} tax returns:\n\n${taxReturns.map(tr => `• ${tr.tax_year}: ${tr.status} - ${safeToNumber(tr.income).toLocaleString()}`).join('\n')}`);
                 }
               }
             ].map((item, index) => (
@@ -1285,10 +1318,10 @@ function Dashboard() {
                   marginBottom: '2rem'
                 }}>
                   {[
-                    { label: "Income", value: `${(taxReturn.income || 0).toLocaleString()}`, icon: "💰", color: "#10b981" },
-                    { label: "Deductions", value: `${(taxReturn.deductions || 0).toLocaleString()}`, icon: "📄", color: "#3b82f6" },
-                    { label: "Tax Owed", value: `${(taxReturn.tax_owed || 0).toFixed(2)}`, icon: "⚠️", color: "#f59e0b" },
-                    { label: "Withholdings", value: `${(taxReturn.withholdings || 0).toFixed(2)}`, icon: "🛡️", color: "#8b5cf6" }
+                    { label: "Income", value: `${safeToNumber(taxReturn.income).toLocaleString()}`, icon: "💰", color: "#10b981" },
+                    { label: "Deductions", value: `${safeToNumber(taxReturn.deductions).toLocaleString()}`, icon: "📄", color: "#3b82f6" },
+                    { label: "Tax Owed", value: `${safeToFixed(taxReturn.tax_owed)}`, icon: "⚠️", color: "#f59e0b" },
+                    { label: "Withholdings", value: `${safeToFixed(taxReturn.withholdings)}`, icon: "🛡️", color: "#8b5cf6" }
                   ].map((item, i) => (
                     <div key={i} style={{
                       textAlign: 'center',
@@ -1334,7 +1367,7 @@ function Dashboard() {
                   background: 'rgba(255, 255, 255, 0.05)',
                   textAlign: 'center'
                 }}>
-                  {(taxReturn.refund_amount || 0) > 0 ? (
+                  {safeToNumber(taxReturn.refund_amount) > 0 ? (
                     <div>
                       <span style={{
                         fontSize: '4rem',
@@ -1352,7 +1385,7 @@ function Dashboard() {
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent'
                       }}>
-                        Refund: ${(taxReturn.refund_amount || 0).toFixed(2)}
+                        Refund: ${safeToFixed(taxReturn.refund_amount)}
                       </p>
                     </div>
                   ) : (
@@ -1373,7 +1406,7 @@ function Dashboard() {
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent'
                       }}>
-                        Amount Owed: ${(taxReturn.amount_owed || 0).toFixed(2)}
+                        Amount Owed: ${safeToFixed(taxReturn.amount_owed)}
                       </p>
                     </div>
                   )}
@@ -1384,13 +1417,13 @@ function Dashboard() {
                     onClick={() => {
                       const returnInfo = `Tax Return Details - ${taxReturn.tax_year}\n\n` +
                         `📊 Financial Summary:\n` +
-                        `• Income: ${(taxReturn.income || 0).toLocaleString()}\n` +
-                        `• Deductions: ${(taxReturn.deductions || 0).toLocaleString()}\n` +
-                        `• Tax Owed: ${(taxReturn.tax_owed || 0).toFixed(2)}\n` +
-                        `• Withholdings: ${(taxReturn.withholdings || 0).toFixed(2)}\n\n` +
-                        `💰 Result: ${(taxReturn.refund_amount || 0) > 0 ? 
-                          `Refund of ${(taxReturn.refund_amount || 0).toFixed(2)}` : 
-                          `Amount Owed: ${(taxReturn.amount_owed || 0).toFixed(2)}`}\n\n` +
+                        `• Income: ${safeToNumber(taxReturn.income).toLocaleString()}\n` +
+                        `• Deductions: ${safeToNumber(taxReturn.deductions).toLocaleString()}\n` +
+                        `• Tax Owed: ${safeToFixed(taxReturn.tax_owed)}\n` +
+                        `• Withholdings: ${safeToFixed(taxReturn.withholdings)}\n\n` +
+                        `💰 Result: ${safeToNumber(taxReturn.refund_amount) > 0 ? 
+                          `Refund of ${safeToFixed(taxReturn.refund_amount)}` : 
+                          `Amount Owed: ${safeToFixed(taxReturn.amount_owed)}`}\n\n` +
                         `📅 Status: ${taxReturn.status.toUpperCase()}\n` +
                         `🤖 AI Generated: ${taxReturn.auto_generated ? 'Yes' : 'No'}\n` +
                         `📄 Source: ${taxReturn.source_document}`;
@@ -1417,10 +1450,20 @@ function Dashboard() {
                       onClick={() => {
                         const updatedReturn = {
                           ...taxReturn,
-                          income: prompt(`Edit Income for ${taxReturn.tax_year}:`, taxReturn.income) || taxReturn.income,
-                          withholdings: prompt(`Edit Withholdings for ${taxReturn.tax_year}:`, taxReturn.withholdings) || taxReturn.withholdings,
-                          deductions: prompt(`Edit Deductions for ${taxReturn.tax_year}:`, taxReturn.deductions) || taxReturn.deductions
+                          income: safeToNumber(prompt(`Edit Income for ${taxReturn.tax_year}:`, taxReturn.income) || taxReturn.income),
+                          withholdings: safeToNumber(prompt(`Edit Withholdings for ${taxReturn.tax_year}:`, taxReturn.withholdings) || taxReturn.withholdings),
+                          deductions: safeToNumber(prompt(`Edit Deductions for ${taxReturn.tax_year}:`, taxReturn.deductions) || taxReturn.deductions)
                         };
+                        
+                        // Recalculate refund/owed
+                        const taxOwed = (updatedReturn.income - updatedReturn.deductions) * 0.22;
+                        if (updatedReturn.withholdings > taxOwed) {
+                          updatedReturn.refund_amount = updatedReturn.withholdings - taxOwed;
+                          updatedReturn.amount_owed = 0;
+                        } else {
+                          updatedReturn.refund_amount = 0;
+                          updatedReturn.amount_owed = taxOwed - updatedReturn.withholdings;
+                        }
                         
                         setTaxReturns(prev => prev.map(tr => 
                           tr.id === taxReturn.id ? updatedReturn : tr
@@ -1452,14 +1495,14 @@ function Dashboard() {
                         `Tax Year: ${taxReturn.tax_year}\n` +
                         `Filing Status: ${taxReturn.status.toUpperCase()}\n\n` +
                         `INCOME INFORMATION:\n` +
-                        `Total Income: ${(taxReturn.income || 0).toLocaleString()}\n` +
-                        `Deductions: ${(taxReturn.deductions || 0).toLocaleString()}\n` +
-                        `Tax Owed: ${(taxReturn.tax_owed || 0).toFixed(2)}\n` +
-                        `Withholdings: ${(taxReturn.withholdings || 0).toFixed(2)}\n\n` +
+                        `Total Income: ${safeToNumber(taxReturn.income).toLocaleString()}\n` +
+                        `Deductions: ${safeToNumber(taxReturn.deductions).toLocaleString()}\n` +
+                        `Tax Owed: ${safeToFixed(taxReturn.tax_owed)}\n` +
+                        `Withholdings: ${safeToFixed(taxReturn.withholdings)}\n\n` +
                         `RESULT:\n` +
-                        `${(taxReturn.refund_amount || 0) > 0 ? 
-                          `Refund Amount: ${(taxReturn.refund_amount || 0).toFixed(2)}` : 
-                          `Amount Owed: ${(taxReturn.amount_owed || 0).toFixed(2)}`}\n\n` +
+                        `${safeToNumber(taxReturn.refund_amount) > 0 ? 
+                          `Refund Amount: ${safeToFixed(taxReturn.refund_amount)}` : 
+                          `Amount Owed: ${safeToFixed(taxReturn.amount_owed)}`}\n\n` +
                         `Generated by TaxBox.AI\n` +
                         `${taxReturn.auto_generated ? 'AI-Generated from: ' + taxReturn.source_document : 'Manually entered'}\n` +
                         `Date: ${new Date(taxReturn.created_at).toLocaleDateString()}`;
@@ -1608,41 +1651,41 @@ function Dashboard() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
                       <div>
                         <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Income</p>
-                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#10b981' }}>${(detailViewData.income || 0).toLocaleString()}</p>
+                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#10b981' }}>${safeToNumber(detailViewData.income).toLocaleString()}</p>
                       </div>
                       <div>
                         <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Deductions</p>
-                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#3b82f6' }}>${(detailViewData.deductions || 0).toLocaleString()}</p>
+                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#3b82f6' }}>${safeToNumber(detailViewData.deductions).toLocaleString()}</p>
                       </div>
                       <div>
                         <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Tax Owed</p>
-                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#f59e0b' }}>${(detailViewData.tax_owed || 0).toFixed(2)}</p>
+                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#f59e0b' }}>${safeToFixed(detailViewData.tax_owed)}</p>
                       </div>
                       <div>
                         <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Withholdings</p>
-                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#8b5cf6' }}>${(detailViewData.withholdings || 0).toFixed(2)}</p>
+                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#8b5cf6' }}>${safeToFixed(detailViewData.withholdings)}</p>
                       </div>
                     </div>
                     
                     <div style={{
-                      background: (detailViewData.refund_amount || 0) > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                      border: (detailViewData.refund_amount || 0) > 0 ? '2px solid rgba(16, 185, 129, 0.3)' : '2px solid rgba(239, 68, 68, 0.3)',
+                      background: safeToNumber(detailViewData.refund_amount) > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                      border: safeToNumber(detailViewData.refund_amount) > 0 ? '2px solid rgba(16, 185, 129, 0.3)' : '2px solid rgba(239, 68, 68, 0.3)',
                       borderRadius: '1rem',
                       padding: '1rem',
                       textAlign: 'center',
                       marginBottom: '1rem'
                     }}>
                       <p style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-                        {(detailViewData.refund_amount || 0) > 0 ? '💰' : '⚠️'}
+                        {safeToNumber(detailViewData.refund_amount) > 0 ? '💰' : '⚠️'}
                       </p>
                       <p style={{ 
                         fontWeight: 'bold', 
                         fontSize: '1.25rem',
-                        color: (detailViewData.refund_amount || 0) > 0 ? '#10b981' : '#ef4444'
+                        color: safeToNumber(detailViewData.refund_amount) > 0 ? '#10b981' : '#ef4444'
                       }}>
-                        {(detailViewData.refund_amount || 0) > 0 
-                          ? `Refund: ${(detailViewData.refund_amount || 0).toFixed(2)}`
-                          : `Amount Owed: ${(detailViewData.amount_owed || 0).toFixed(2)}`
+                        {safeToNumber(detailViewData.refund_amount) > 0 
+                          ? `Refund: ${safeToFixed(detailViewData.refund_amount)}`
+                          : `Amount Owed: ${safeToFixed(detailViewData.amount_owed)}`
                         }
                       </p>
                     </div>
@@ -1706,17 +1749,17 @@ function Dashboard() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem', fontSize: '0.875rem' }}>
                           <div>
                             <span style={{ color: '#9ca3af' }}>Income: </span>
-                            <span style={{ fontWeight: '600', color: '#10b981' }}>${(taxReturn.income || 0).toLocaleString()}</span>
+                            <span style={{ fontWeight: '600', color: '#10b981' }}>${safeToNumber(taxReturn.income).toLocaleString()}</span>
                           </div>
                           <div>
                             <span style={{ color: '#9ca3af' }}>Result: </span>
                             <span style={{ 
                               fontWeight: '600',
-                              color: (taxReturn.refund_amount || 0) > 0 ? '#10b981' : '#ef4444'
+                              color: safeToNumber(taxReturn.refund_amount) > 0 ? '#10b981' : '#ef4444'
                             }}>
-                              {(taxReturn.refund_amount || 0) > 0 
-                                ? `+${taxReturn.refund_amount.toFixed(2)}`
-                                : `-${(taxReturn.amount_owed || 0).toFixed(2)}`
+                              {safeToNumber(taxReturn.refund_amount) > 0 
+                                ? `+${safeToFixed(taxReturn.refund_amount)}`
+                                : `-${safeToFixed(taxReturn.amount_owed)}`
                               }
                             </span>
                           </div>
@@ -1805,3 +1848,4 @@ function Dashboard() {
 }
 
 export default Dashboard;
+                        `
