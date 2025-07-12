@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 
 function Dashboard() {
-  // Simulated data and state management
+  // User data
   const [user] = useState({ full_name: 'Alex Johnson' });
+  
+  // Sample data
   const [taxReturns, setTaxReturns] = useState([
     {
       id: 1,
@@ -12,6 +14,7 @@ function Dashboard() {
       withholdings: 9500,
       tax_owed: 8200,
       refund_amount: 1300,
+      amount_owed: 0,
       status: 'draft',
       auto_generated: true,
       source_document: 'W2_Acme_Corp.pdf',
@@ -25,8 +28,10 @@ function Dashboard() {
       withholdings: 8900,
       tax_owed: 7800,
       refund_amount: 1100,
+      amount_owed: 0,
       status: 'filed',
       auto_generated: false,
+      source_document: 'manual_entry',
       created_at: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
     }
   ]);
@@ -52,8 +57,7 @@ function Dashboard() {
     }
   ]);
   
-  const [loading, setLoading] = useState(false);
-  const [showTaxForm, setShowTaxForm] = useState(false);
+  // State management
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
@@ -119,6 +123,7 @@ function Dashboard() {
       deductions: parseFloat(manualTaxData.deductions) || 12550,
       tax_owed: 0,
       refund_amount: 0,
+      amount_owed: 0,
       status: 'draft',
       auto_generated: true,
       source_document: currentDocument?.filename || 'manual_entry',
@@ -138,6 +143,19 @@ function Dashboard() {
     });
   };
 
+  const handleDeleteDocument = (documentId) => {
+    if (window.confirm('Are you sure you want to delete this document?')) {
+      setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+      addDebugInfo(`🗑️ Deleted document ID: ${documentId}`);
+    }
+  };
+
+  const handleProcessDocument = (document) => {
+    setCurrentDocument(document);
+    setShowManualEntry(true);
+    addDebugInfo(`🔄 Processing document: ${document.filename}`);
+  };
+
   const stats = [
     { title: 'Total Returns', value: taxReturns.length, icon: '📄', gradient: 'from-blue-500 to-cyan-500' },
     { title: 'Total Refunds', value: `$${taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0).toLocaleString()}`, icon: '💰', gradient: 'from-emerald-500 to-green-500' },
@@ -151,8 +169,8 @@ function Dashboard() {
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -inset-10 opacity-50">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
-          <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-2000"></div>
-          <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-4000"></div>
+          <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
+          <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
         </div>
       </div>
 
@@ -168,7 +186,7 @@ function Dashboard() {
             <span className="text-green-400 font-bold">TaxBox.AI Terminal</span>
             <button 
               onClick={() => setDebugInfo('System ready... 🚀')}
-              className="ml-auto text-red-400 hover:text-red-300"
+              className="ml-auto text-red-400 hover:text-red-300 transition-colors"
             >
               Clear
             </button>
@@ -209,7 +227,10 @@ function Dashboard() {
                   />
                 </button>
               </div>
-              <button className="px-6 py-3 bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 text-red-300 rounded-2xl hover:from-red-500/30 hover:to-pink-500/30 transition-all duration-300">
+              <button 
+                onClick={() => addDebugInfo('🚪 User logged out')}
+                className="px-6 py-3 bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 text-red-300 rounded-2xl hover:from-red-500/30 hover:to-pink-500/30 transition-all duration-300"
+              >
                 Logout
               </button>
             </div>
@@ -222,7 +243,7 @@ function Dashboard() {
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className="w-10 h-10 border-4 border-purple-300/30 border-t-purple-400 rounded-full animate-spin"></div>
-                <div className="absolute inset-0 w-10 h-10 border-4 border-cyan-300/30 border-b-cyan-400 rounded-full animate-spin animate-reverse"></div>
+                <div className="absolute inset-0 w-10 h-10 border-4 border-cyan-300/30 border-b-cyan-400 rounded-full animate-spin"></div>
               </div>
               <div>
                 <h3 className="text-xl font-bold text-purple-300">AI Processing Document</h3>
@@ -390,7 +411,7 @@ function Dashboard() {
         )}
 
         {/* Quick Actions */}
-        {!showTaxForm && !showUploadForm && !showManualEntry && (
+        {!showUploadForm && !showManualEntry && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {[
               {
@@ -398,7 +419,7 @@ function Dashboard() {
                 title: "Manual Tax Filing",
                 description: "Complete control over your tax return process",
                 gradient: "from-blue-500 to-cyan-500",
-                action: () => console.log('Manual filing')
+                action: () => addDebugInfo('📝 Manual filing mode selected')
               },
               {
                 icon: "🤖",
@@ -412,7 +433,7 @@ function Dashboard() {
                 title: "View All Returns",
                 description: "Access your complete tax return history",
                 gradient: "from-emerald-500 to-teal-500",
-                action: () => console.log('View returns')
+                action: () => addDebugInfo('📄 Viewing all tax returns')
               }
             ].map((item, index) => (
               <div
@@ -476,7 +497,7 @@ function Dashboard() {
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {documents.map((document, index) => (
+            {documents.map((document) => (
               <div 
                 key={document.id} 
                 className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
@@ -514,21 +535,24 @@ function Dashboard() {
                 )}
                 
                 <div className="flex gap-2">
-                  <button className="flex-1 px-3 py-2 bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm rounded-lg hover:bg-blue-500/30 transition-all duration-200 flex items-center justify-center gap-1">
+                  <button 
+                    onClick={() => addDebugInfo(`👁️ Viewing document: ${document.filename}`)}
+                    className="flex-1 px-3 py-2 bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm rounded-lg hover:bg-blue-500/30 transition-all duration-200 flex items-center justify-center gap-1"
+                  >
                     <span>👁️</span>
                     View
                   </button>
                   <button 
-                    onClick={() => {
-                      setCurrentDocument(document);
-                      setShowManualEntry(true);
-                    }}
+                    onClick={() => handleProcessDocument(document)}
                     className="flex-1 px-3 py-2 bg-green-500/20 border border-green-500/30 text-green-300 text-sm rounded-lg hover:bg-green-500/30 transition-all duration-200 flex items-center justify-center gap-1"
                   >
                     <span>📝</span>
                     Process
                   </button>
-                  <button className="px-3 py-2 bg-red-500/20 border border-red-500/30 text-red-300 text-sm rounded-lg hover:bg-red-500/30 transition-all duration-200">
+                  <button 
+                    onClick={() => handleDeleteDocument(document.id)}
+                    className="px-3 py-2 bg-red-500/20 border border-red-500/30 text-red-300 text-sm rounded-lg hover:bg-red-500/30 transition-all duration-200"
+                  >
                     <span>🗑️</span>
                   </button>
                 </div>
@@ -542,7 +566,7 @@ function Dashboard() {
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center">
-                <span className="text-2xl">📄</span>
+                <span className="text-2xl">📊</span>
               </div>
               <div>
                 <h2 className="text-3xl font-bold">Your Tax Returns</h2>
@@ -557,136 +581,115 @@ function Dashboard() {
                 <span className="text-lg">🤖</span>
                 Smart Filing
               </button>
-              <button className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 font-semibold flex items-center gap-2">
+              <button 
+                onClick={() => addDebugInfo('📝 Manual filing initiated')}
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 font-semibold flex items-center gap-2"
+              >
                 <span className="text-lg">📝</span>
                 Manual Filing
               </button>
             </div>
           </div>
           
-          {loading ? (
-            <div className="text-center py-16">
-              <div className="relative w-16 h-16 mx-auto mb-6">
-                <div className="absolute inset-0 border-4 border-purple-300/30 rounded-full animate-pulse"></div>
-                <div className="absolute inset-0 border-4 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-              <p className="text-gray-300 text-lg">Loading your tax returns...</p>
-            </div>
-          ) : taxReturns.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="w-24 h-24 bg-gradient-to-r from-gray-600 to-gray-700 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <span className="text-5xl">📄</span>
-              </div>
-              <h3 className="text-2xl font-bold mb-4">Ready to file your taxes?</h3>
-              <p className="text-gray-300 mb-8 max-w-md mx-auto">
-                Choose between AI-powered smart filing or traditional manual filing
-              </p>
-              <div className="flex gap-4 justify-center">
-                <button 
-                  onClick={() => setShowUploadForm(true)} 
-                  className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl hover:from-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-300 shadow-lg font-semibold text-lg"
-                >
-                  <span className="text-2xl">🤖</span>
-                  Smart Filing
-                </button>
-                <button className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl hover:from-blue-600 hover:to-cyan-600 transform hover:scale-105 transition-all duration-300 shadow-lg font-semibold text-lg">
-                  <span className="text-2xl">📝</span>
-                  Manual Filing
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {taxReturns.map((taxReturn, index) => (
-                <div 
-                  key={taxReturn.id} 
-                  className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transform hover:scale-105 transition-all duration-300 group"
-                >
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h3 className="text-xl font-bold text-white group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-purple-400 group-hover:bg-clip-text transition-all duration-300">
-                        Tax Year {taxReturn.tax_year}
-                      </h3>
-                      <p className="text-gray-400">Filed {new Date(taxReturn.created_at).toLocaleDateString()}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        taxReturn.status === 'draft' 
-                          ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 text-yellow-300' 
-                          : 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 text-green-300'
-                      }`}>
-                        {taxReturn.status.toUpperCase()}
-                      </span>
-                      {taxReturn.auto_generated && (
-                        <span className="px-3 py-1 rounded-full text-xs bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-300 font-semibold flex items-center gap-1">
-                          <span>🤖</span>
-                          AI
-                        </span>
-                      )}
-                    </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {taxReturns.map((taxReturn) => (
+              <div 
+                key={taxReturn.id} 
+                className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transform hover:scale-105 transition-all duration-300 group"
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-white group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-purple-400 group-hover:bg-clip-text transition-all duration-300">
+                      Tax Year {taxReturn.tax_year}
+                    </h3>
+                    <p className="text-gray-400">Filed {new Date(taxReturn.created_at).toLocaleDateString()}</p>
                   </div>
-
-                  {taxReturn.auto_generated && (
-                    <div className="mb-4 p-3 bg-purple-500/20 border border-purple-500/30 rounded-xl">
-                      <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
+                  <div className="flex gap-2">
+                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                      taxReturn.status === 'draft' 
+                        ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 text-yellow-300' 
+                        : 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 text-green-300'
+                    }`}>
+                      {taxReturn.status.toUpperCase()}
+                    </span>
+                    {taxReturn.auto_generated && (
+                      <span className="px-3 py-1 rounded-full text-xs bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-300 font-semibold flex items-center gap-1">
                         <span>🤖</span>
-                        AI-generated from: {taxReturn.source_document}
+                        AI
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {taxReturn.auto_generated && (
+                  <div className="mb-4 p-3 bg-purple-500/20 border border-purple-500/30 rounded-xl">
+                    <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
+                      <span>🤖</span>
+                      AI-generated from: {taxReturn.source_document}
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  {[
+                    { label: "Income", value: `${(taxReturn.income || 0).toLocaleString()}`, icon: "💰", color: "text-green-400" },
+                    { label: "Deductions", value: `${(taxReturn.deductions || 0).toLocaleString()}`, icon: "📄", color: "text-blue-400" },
+                    { label: "Tax Owed", value: `${(taxReturn.tax_owed || 0).toFixed(2)}`, icon: "⚠️", color: "text-orange-400" },
+                    { label: "Withholdings", value: `${(taxReturn.withholdings || 0).toFixed(2)}`, icon: "🛡️", color: "text-purple-400" }
+                  ].map((item, i) => (
+                    <div key={i} className="text-center p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <span className={`text-xl mx-auto mb-1 block ${item.color}`}>{item.icon}</span>
+                      <p className="text-xs text-gray-400 font-medium">{item.label}</p>
+                      <p className="text-sm font-bold text-white">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mb-6 p-4 rounded-2xl border-2 border-dashed border-white/20 bg-white/5">
+                  {(taxReturn.refund_amount || 0) > 0 ? (
+                    <div className="text-center">
+                      <span className="text-4xl text-green-400 block mb-2">💰</span>
+                      <p className="text-green-400 font-bold text-lg">
+                        Refund: ${(taxReturn.refund_amount || 0).toFixed(2)}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <span className="text-4xl text-red-400 block mb-2">⚠️</span>
+                      <p className="text-red-400 font-bold text-lg">
+                        Amount Owed: ${(taxReturn.amount_owed || 0).toFixed(2)}
                       </p>
                     </div>
                   )}
-
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    {[
-                      { label: "Income", value: `${(taxReturn.income || 0).toLocaleString()}`, icon: "💰", color: "text-green-400" },
-                      { label: "Deductions", value: `${(taxReturn.deductions || 0).toLocaleString()}`, icon: "📄", color: "text-blue-400" },
-                      { label: "Tax Owed", value: `${(taxReturn.tax_owed || 0).toFixed(2)}`, icon: "⚠️", color: "text-orange-400" },
-                      { label: "Withholdings", value: `${(taxReturn.withholdings || 0).toFixed(2)}`, icon: "🛡️", color: "text-purple-400" }
-                    ].map((item, i) => (
-                      <div key={i} className="text-center p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <span className={`text-xl mx-auto mb-1 block ${item.color}`}>{item.icon}</span>
-                        <p className="text-xs text-gray-400 font-medium">{item.label}</p>
-                        <p className="text-sm font-bold text-white">{item.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="mb-6 p-4 rounded-2xl border-2 border-dashed border-white/20 bg-white/5">
-                    {(taxReturn.refund_amount || 0) > 0 ? (
-                      <div className="text-center">
-                        <span className="text-4xl text-green-400 block mb-2">💰</span>
-                        <p className="text-green-400 font-bold text-lg">
-                          Refund: ${(taxReturn.refund_amount || 0).toFixed(2)}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <span className="text-4xl text-red-400 block mb-2">⚠️</span>
-                        <p className="text-red-400 font-bold text-lg">
-                          Amount Owed: ${(taxReturn.amount_owed || 0).toFixed(2)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    <button className="flex-1 px-4 py-2 bg-gray-500/20 border border-gray-500/30 text-gray-300 text-sm rounded-xl hover:bg-gray-500/30 transition-all duration-200 font-medium flex items-center justify-center gap-1">
-                      <span>👁️</span>
-                      View
-                    </button>
-                    {taxReturn.status === 'draft' && (
-                      <button className="flex-1 px-4 py-2 bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm rounded-xl hover:bg-blue-500/30 transition-all duration-200 font-medium flex items-center justify-center gap-1">
-                        <span>✏️</span>
-                        Edit
-                      </button>
-                    )}
-                    <button className="px-4 py-2 bg-green-500/20 border border-green-500/30 text-green-300 text-sm rounded-xl hover:bg-green-500/30 transition-all duration-200 font-medium">
-                      <span>📥</span>
-                    </button>
-                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+                
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => addDebugInfo(`👁️ Viewing tax return ${taxReturn.tax_year}`)}
+                    className="flex-1 px-4 py-2 bg-gray-500/20 border border-gray-500/30 text-gray-300 text-sm rounded-xl hover:bg-gray-500/30 transition-all duration-200 font-medium flex items-center justify-center gap-1"
+                  >
+                    <span>👁️</span>
+                    View
+                  </button>
+                  {taxReturn.status === 'draft' && (
+                    <button 
+                      onClick={() => addDebugInfo(`✏️ Editing tax return ${taxReturn.tax_year}`)}
+                      className="flex-1 px-4 py-2 bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm rounded-xl hover:bg-blue-500/30 transition-all duration-200 font-medium flex items-center justify-center gap-1"
+                    >
+                      <span>✏️</span>
+                      Edit
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => addDebugInfo(`📥 Downloading tax return ${taxReturn.tax_year}`)}
+                    className="px-4 py-2 bg-green-500/20 border border-green-500/30 text-green-300 text-sm rounded-xl hover:bg-green-500/30 transition-all duration-200 font-medium"
+                  >
+                    <span>📥</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
           
           {/* Info Panel */}
           <div className="mt-8 p-6 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-blue-500/20 rounded-2xl">
@@ -741,18 +744,6 @@ function Dashboard() {
         
         .animate-float {
           animation: float 6s ease-in-out infinite;
-        }
-        
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-        
-        .animate-reverse {
-          animation-direction: reverse;
         }
         
         /* Glassmorphism enhancement */
