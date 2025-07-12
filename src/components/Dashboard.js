@@ -239,6 +239,12 @@ function Dashboard() {
               cursor: 'pointer',
               transition: 'all 0.3s ease',
               fontSize: '0.875rem'
+            }}
+            onClick={() => {
+              if (window.confirm('Are you sure you want to logout?')) {
+                alert('Logged out successfully!');
+                // In a real app, you would redirect to login page or clear auth tokens
+              }
             }}>
               Logout
             </button>
@@ -618,7 +624,10 @@ function Dashboard() {
                 title: "Manual Tax Filing",
                 description: "Complete control over your tax return process",
                 gradient: "linear-gradient(135deg, #3b82f6, #06b6d4)",
-                action: () => console.log('Manual filing')
+                action: () => {
+                  setShowManualEntry(true);
+                  setCurrentDocument(null);
+                }
               },
               {
                 icon: "🤖",
@@ -632,7 +641,9 @@ function Dashboard() {
                 title: "View All Returns",
                 description: "Access your complete tax return history",
                 gradient: "linear-gradient(135deg, #10b981, #14b8a6)",
-                action: () => console.log('View returns')
+                action: () => {
+                  alert(`You have ${taxReturns.length} tax returns:\n\n${taxReturns.map(tr => `• ${tr.tax_year}: ${tr.status} - ${tr.income.toLocaleString()}`).join('\n')}`);
+                }
               }
             ].map((item, index) => (
               <div
@@ -946,7 +957,9 @@ function Dashboard() {
                 
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <button 
-                    onClick={() => console.log(`Viewing document: ${document.filename}`)}
+                    onClick={() => {
+                      alert(`Viewing document: ${document.filename}\n\nFile Info:\n• Type: ${document.file_type}\n• Size: ${(document.file_size / 1024).toFixed(1)} KB\n• Uploaded: ${new Date(document.uploaded_at).toLocaleDateString()}\n• OCR Status: ${document.ocr_text ? 'Text extracted ✅' : 'No text extracted ⚠️'}`);
+                    }}
                     style={{
                       flex: 1,
                       padding: '0.75rem 1rem',
@@ -1070,7 +1083,10 @@ function Dashboard() {
                 Smart Filing
               </button>
               <button 
-                onClick={() => console.log('Manual filing')}
+                onClick={() => {
+                  setShowManualEntry(true);
+                  setCurrentDocument(null);
+                }} 
                 style={{
                   background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
                   color: 'white',
@@ -1296,7 +1312,22 @@ function Dashboard() {
                 
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <button 
-                    onClick={() => console.log(`Viewing tax return ${taxReturn.tax_year}`)}
+                    onClick={() => {
+                      const returnInfo = `Tax Return Details - ${taxReturn.tax_year}\n\n` +
+                        `📊 Financial Summary:\n` +
+                        `• Income: ${(taxReturn.income || 0).toLocaleString()}\n` +
+                        `• Deductions: ${(taxReturn.deductions || 0).toLocaleString()}\n` +
+                        `• Tax Owed: ${(taxReturn.tax_owed || 0).toFixed(2)}\n` +
+                        `• Withholdings: ${(taxReturn.withholdings || 0).toFixed(2)}\n\n` +
+                        `💰 Result: ${(taxReturn.refund_amount || 0) > 0 ? 
+                          `Refund of ${(taxReturn.refund_amount || 0).toFixed(2)}` : 
+                          `Amount Owed: ${(taxReturn.amount_owed || 0).toFixed(2)}`}\n\n` +
+                        `📅 Status: ${taxReturn.status.toUpperCase()}\n` +
+                        `🤖 AI Generated: ${taxReturn.auto_generated ? 'Yes' : 'No'}\n` +
+                        `📄 Source: ${taxReturn.source_document}`;
+                      
+                      alert(returnInfo);
+                    }}
                     style={{
                       flex: 1,
                       padding: '1rem 1.5rem',
@@ -1314,7 +1345,20 @@ function Dashboard() {
                   </button>
                   {taxReturn.status === 'draft' && (
                     <button 
-                      onClick={() => console.log(`Editing tax return ${taxReturn.tax_year}`)}
+                      onClick={() => {
+                        const updatedReturn = {
+                          ...taxReturn,
+                          income: prompt(`Edit Income for ${taxReturn.tax_year}:`, taxReturn.income) || taxReturn.income,
+                          withholdings: prompt(`Edit Withholdings for ${taxReturn.tax_year}:`, taxReturn.withholdings) || taxReturn.withholdings,
+                          deductions: prompt(`Edit Deductions for ${taxReturn.tax_year}:`, taxReturn.deductions) || taxReturn.deductions
+                        };
+                        
+                        setTaxReturns(prev => prev.map(tr => 
+                          tr.id === taxReturn.id ? updatedReturn : tr
+                        ));
+                        
+                        alert(`Tax return for ${taxReturn.tax_year} updated successfully!`);
+                      }}
                       style={{
                         flex: 1,
                         padding: '1rem 1.5rem',
@@ -1332,7 +1376,38 @@ function Dashboard() {
                     </button>
                   )}
                   <button 
-                    onClick={() => console.log(`Downloading tax return ${taxReturn.tax_year}`)}
+                    onClick={() => {
+                      // Create a simple PDF-like text content
+                      const pdfContent = `TAX RETURN SUMMARY - ${taxReturn.tax_year}\n\n` +
+                        `Taxpayer: ${user?.full_name}\n` +
+                        `Tax Year: ${taxReturn.tax_year}\n` +
+                        `Filing Status: ${taxReturn.status.toUpperCase()}\n\n` +
+                        `INCOME INFORMATION:\n` +
+                        `Total Income: ${(taxReturn.income || 0).toLocaleString()}\n` +
+                        `Deductions: ${(taxReturn.deductions || 0).toLocaleString()}\n` +
+                        `Tax Owed: ${(taxReturn.tax_owed || 0).toFixed(2)}\n` +
+                        `Withholdings: ${(taxReturn.withholdings || 0).toFixed(2)}\n\n` +
+                        `RESULT:\n` +
+                        `${(taxReturn.refund_amount || 0) > 0 ? 
+                          `Refund Amount: ${(taxReturn.refund_amount || 0).toFixed(2)}` : 
+                          `Amount Owed: ${(taxReturn.amount_owed || 0).toFixed(2)}`}\n\n` +
+                        `Generated by TaxBox.AI\n` +
+                        `${taxReturn.auto_generated ? 'AI-Generated from: ' + taxReturn.source_document : 'Manually entered'}\n` +
+                        `Date: ${new Date(taxReturn.created_at).toLocaleDateString()}`;
+                      
+                      // Create and download as text file
+                      const blob = new Blob([pdfContent], { type: 'text/plain' });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `tax_return_${taxReturn.tax_year}_${taxReturn.id}.txt`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      window.URL.revokeObjectURL(url);
+                      
+                      alert(`Tax return for ${taxReturn.tax_year} downloaded successfully!`);
+                    }}
                     style={{
                       padding: '1rem 1.5rem',
                       background: 'rgba(16, 185, 129, 0.2)',
