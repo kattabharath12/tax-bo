@@ -45,6 +45,7 @@ function Dashboard() {
     const file = event.target.files[0];
     if (!file) return;
     setProcessingDocument(true);
+    
     setTimeout(() => {
       const newDoc = {
         id: documents.length + 1,
@@ -55,18 +56,120 @@ function Dashboard() {
         ocr_text: Math.random() > 0.5 ? 'Sample OCR text' : null,
         file_url: '#'
       };
+      
       setDocuments(prev => [newDoc, ...prev]);
       setProcessingDocument(false);
       setShowUploadForm(false);
-      if (!newDoc.ocr_text && autoFilingEnabled) {
-        setTimeout(() => {
-          if (window.confirm('No OCR text detected. Would you like to manually enter tax information?')) {
-            setCurrentDocument(newDoc);
-            setShowManualEntry(true);
-          }
-        }, 1000);
+      
+      // AI Processing Logic
+      if (autoFilingEnabled) {
+        if (newDoc.ocr_text) {
+          // Simulate AI extracting tax data from OCR text
+          setTimeout(() => {
+            const extractedData = simulateAIExtraction(newDoc);
+            
+            if (extractedData) {
+              if (window.confirm(`AI successfully extracted tax data from ${newDoc.filename}!\n\nDetected:\n• Income: ${extractedData.income.toLocaleString()}\n• Withholdings: ${extractedData.withholdings.toLocaleString()}\n• Tax Year: ${extractedData.tax_year}\n\nWould you like to create a tax return with this data?`)) {
+                createTaxReturnFromData(extractedData, newDoc);
+              }
+            }
+          }, 1500);
+        } else {
+          // No OCR text - offer manual entry
+          setTimeout(() => {
+            if (window.confirm('No OCR text detected. Would you like to manually enter tax information from this document?')) {
+              setCurrentDocument(newDoc);
+              setShowManualEntry(true);
+            }
+          }, 1000);
+        }
       }
     }, 2000);
+  };
+
+  // Simulate AI data extraction from document
+  const simulateAIExtraction = (document) => {
+    const filename = document.filename.toLowerCase();
+    
+    // Different data based on document type
+    if (filename.includes('w2') || filename.includes('wage')) {
+      return {
+        income: Math.floor(Math.random() * 50000) + 40000, // 40k-90k
+        withholdings: Math.floor(Math.random() * 8000) + 5000, // 5k-13k
+        deductions: 12550, // Standard deduction
+        tax_year: 2024,
+        document_type: 'w2'
+      };
+    } else if (filename.includes('1099')) {
+      return {
+        income: Math.floor(Math.random() * 30000) + 10000, // 10k-40k
+        withholdings: Math.floor(Math.random() * 3000) + 1000, // 1k-4k
+        deductions: 12550,
+        tax_year: 2024,
+        document_type: '1099'
+      };
+    } else {
+      // Generic document
+      return {
+        income: Math.floor(Math.random() * 40000) + 30000,
+        withholdings: Math.floor(Math.random() * 6000) + 3000,
+        deductions: 12550,
+        tax_year: 2024,
+        document_type: 'other'
+      };
+    }
+  };
+
+  // Create tax return from extracted data
+  const createTaxReturnFromData = (extractedData, sourceDocument) => {
+    const existingReturn = taxReturns.find(tr => tr.tax_year === extractedData.tax_year);
+    
+    if (existingReturn) {
+      // Update existing return
+      const updatedReturn = {
+        ...existingReturn,
+        income: (existingReturn.income || 0) + extractedData.income,
+        withholdings: (existingReturn.withholdings || 0) + extractedData.withholdings,
+        deductions: Math.max(existingReturn.deductions || 0, extractedData.deductions),
+        source_document: `${existingReturn.source_document}, ${sourceDocument.filename}`
+      };
+      
+      setTaxReturns(prev => prev.map(tr => 
+        tr.id === existingReturn.id ? updatedReturn : tr
+      ));
+      
+      alert(`✅ Tax return for ${extractedData.tax_year} updated!\n\nAdded:\n• Income: +${extractedData.income.toLocaleString()}\n• Withholdings: +${extractedData.withholdings.toLocaleString()}\n\nTotal Income: ${updatedReturn.income.toLocaleString()}`);
+    } else {
+      // Create new return
+      const newReturn = {
+        id: taxReturns.length + 1,
+        tax_year: extractedData.tax_year,
+        income: extractedData.income,
+        withholdings: extractedData.withholdings,
+        deductions: extractedData.deductions,
+        tax_owed: Math.max(0, (extractedData.income - extractedData.deductions) * 0.22 - extractedData.withholdings),
+        refund_amount: Math.max(0, extractedData.withholdings - (extractedData.income - extractedData.deductions) * 0.22),
+        amount_owed: 0,
+        status: 'draft',
+        auto_generated: true,
+        source_document: sourceDocument.filename,
+        created_at: new Date().toISOString()
+      };
+      
+      // Calculate refund vs owed
+      const taxOwed = (newReturn.income - newReturn.deductions) * 0.22; // Simplified 22% tax rate
+      if (newReturn.withholdings > taxOwed) {
+        newReturn.refund_amount = newReturn.withholdings - taxOwed;
+        newReturn.amount_owed = 0;
+      } else {
+        newReturn.refund_amount = 0;
+        newReturn.amount_owed = taxOwed - newReturn.withholdings;
+      }
+      
+      setTaxReturns(prev => [newReturn, ...prev]);
+      
+      alert(`🎉 New tax return created for ${extractedData.tax_year}!\n\n💰 Summary:\n• Income: ${extractedData.income.toLocaleString()}\n• Withholdings: ${extractedData.withholdings.toLocaleString()}\n• ${newReturn.refund_amount > 0 ? `Refund: ${newReturn.refund_amount.toFixed(2)}` : `Owed: ${newReturn.amount_owed.toFixed(2)}`}`);
+    }
   };
 
   const handleManualTaxEntry = (e) => {
