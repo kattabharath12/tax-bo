@@ -12,22 +12,12 @@ function Dashboard() {
       sessionStorage.clear();
       
       // Navigate back to login page
-      // Method 1: Using window.location (works in all setups)
       window.location.href = '/login';
-      
-      // Method 2: If you're using React Router, uncomment this instead:
-      // const navigate = useNavigate();
-      // navigate('/login');
-      
-      // Method 3: If you have a logout function from context, call it:
-      // logout(); // from useAuth() or similar
     }
   };
   
   const [taxReturns, setTaxReturns] = useState([]);
-  
   const [documents, setDocuments] = useState([]);
-  
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [currentDocument, setCurrentDocument] = useState(null);
@@ -35,7 +25,7 @@ function Dashboard() {
   const [autoFilingEnabled, setAutoFilingEnabled] = useState(true);
   const [showDetailView, setShowDetailView] = useState(false);
   const [detailViewData, setDetailViewData] = useState(null);
-  const [detailViewType, setDetailViewType] = useState(''); // 'document', 'taxReturn', 'allReturns'
+  const [detailViewType, setDetailViewType] = useState('');
   const [manualTaxData, setManualTaxData] = useState({
     income: '',
     withholdings: '',
@@ -79,18 +69,21 @@ function Dashboard() {
       // AI Processing Logic
       if (autoFilingEnabled) {
         if (newDoc.ocr_text) {
-          // Simulate AI extracting tax data from OCR text
           setTimeout(() => {
             const extractedData = simulateAIExtraction(newDoc);
             
             if (extractedData) {
-              if (window.confirm(`AI successfully extracted tax data from ${newDoc.filename}!\n\nDetected:\n• Income: ${extractedData.income.toLocaleString()}\n• Withholdings: ${extractedData.withholdings.toLocaleString()}\n• Tax Year: ${extractedData.tax_year}\n\nWould you like to create a tax return with this data?`)) {
+              const confirmMessage = 'AI successfully extracted tax data from ' + newDoc.filename + '!\n\n' +
+                'Detected:\n• Income: ' + extractedData.income.toLocaleString() + '\n• Withholdings: ' + 
+                extractedData.withholdings.toLocaleString() + '\n• Tax Year: ' + extractedData.tax_year + 
+                '\n\nWould you like to create a tax return with this data?';
+              
+              if (window.confirm(confirmMessage)) {
                 createTaxReturnFromData(extractedData, newDoc);
               }
             }
           }, 1500);
         } else {
-          // No OCR text - offer manual entry
           setTimeout(() => {
             if (window.confirm('No OCR text detected. Would you like to manually enter tax information from this document?')) {
               setCurrentDocument(newDoc);
@@ -102,29 +95,26 @@ function Dashboard() {
     }, 2000);
   };
 
-  // Simulate AI data extraction from document
   const simulateAIExtraction = (document) => {
     const filename = document.filename.toLowerCase();
     
-    // Different data based on document type
     if (filename.includes('w2') || filename.includes('wage')) {
       return {
-        income: Math.floor(Math.random() * 50000) + 40000, // 40k-90k
-        withholdings: Math.floor(Math.random() * 8000) + 5000, // 5k-13k
-        deductions: 12550, // Standard deduction
+        income: Math.floor(Math.random() * 50000) + 40000,
+        withholdings: Math.floor(Math.random() * 8000) + 5000,
+        deductions: 12550,
         tax_year: 2024,
         document_type: 'w2'
       };
     } else if (filename.includes('1099')) {
       return {
-        income: Math.floor(Math.random() * 30000) + 10000, // 10k-40k
-        withholdings: Math.floor(Math.random() * 3000) + 1000, // 1k-4k
+        income: Math.floor(Math.random() * 30000) + 10000,
+        withholdings: Math.floor(Math.random() * 3000) + 1000,
         deductions: 12550,
         tax_year: 2024,
         document_type: '1099'
       };
     } else {
-      // Generic document
       return {
         income: Math.floor(Math.random() * 40000) + 30000,
         withholdings: Math.floor(Math.random() * 6000) + 3000,
@@ -135,27 +125,29 @@ function Dashboard() {
     }
   };
 
-  // Create tax return from extracted data
   const createTaxReturnFromData = (extractedData, sourceDocument) => {
     const existingReturn = taxReturns.find(tr => tr.tax_year === extractedData.tax_year);
     
     if (existingReturn) {
-      // Update existing return - ensure all values are numbers
       const updatedReturn = {
         ...existingReturn,
         income: safeToNumber(existingReturn.income) + safeToNumber(extractedData.income),
         withholdings: safeToNumber(existingReturn.withholdings) + safeToNumber(extractedData.withholdings),
         deductions: Math.max(safeToNumber(existingReturn.deductions), safeToNumber(extractedData.deductions)),
-        source_document: `${existingReturn.source_document}, ${sourceDocument.filename}`
+        source_document: existingReturn.source_document + ', ' + sourceDocument.filename
       };
       
       setTaxReturns(prev => prev.map(tr => 
         tr.id === existingReturn.id ? updatedReturn : tr
       ));
       
-      alert(`✅ Tax return for ${extractedData.tax_year} updated!\n\nAdded:\n• Income: +${extractedData.income.toLocaleString()}\n• Withholdings: +${extractedData.withholdings.toLocaleString()}\n\nTotal Income: ${updatedReturn.income.toLocaleString()}`);
+      const alertMessage = 'Tax return for ' + extractedData.tax_year + ' updated!\n\n' +
+        'Added:\n• Income: +' + extractedData.income.toLocaleString() + 
+        '\n• Withholdings: +' + extractedData.withholdings.toLocaleString() + 
+        '\n\nTotal Income: ' + updatedReturn.income.toLocaleString();
+      
+      alert(alertMessage);
     } else {
-      // Create new return - ensure all values are numbers
       const income = safeToNumber(extractedData.income);
       const withholdings = safeToNumber(extractedData.withholdings);
       const deductions = safeToNumber(extractedData.deductions);
@@ -175,8 +167,7 @@ function Dashboard() {
         created_at: new Date().toISOString()
       };
       
-      // Calculate refund vs owed
-      const taxOwed = (newReturn.income - newReturn.deductions) * 0.22; // Simplified 22% tax rate
+      const taxOwed = (newReturn.income - newReturn.deductions) * 0.22;
       if (newReturn.withholdings > taxOwed) {
         newReturn.refund_amount = newReturn.withholdings - taxOwed;
         newReturn.amount_owed = 0;
@@ -187,14 +178,22 @@ function Dashboard() {
       
       setTaxReturns(prev => [newReturn, ...prev]);
       
-      alert(`🎉 New tax return created for ${extractedData.tax_year}!\n\n💰 Summary:\n• Income: ${extractedData.income.toLocaleString()}\n• Withholdings: ${extractedData.withholdings.toLocaleString()}\n• ${newReturn.refund_amount > 0 ? `Refund: ${newReturn.refund_amount.toFixed(2)}` : `Owed: ${newReturn.amount_owed.toFixed(2)}`}`);
+      const result = newReturn.refund_amount > 0 
+        ? 'Refund: ' + newReturn.refund_amount.toFixed(2)
+        : 'Owed: ' + newReturn.amount_owed.toFixed(2);
+      
+      const alertMessage = 'New tax return created for ' + extractedData.tax_year + '!\n\n' +
+        'Summary:\n• Income: ' + extractedData.income.toLocaleString() + 
+        '\n• Withholdings: ' + extractedData.withholdings.toLocaleString() + 
+        '\n• ' + result;
+      
+      alert(alertMessage);
     }
   };
 
   const handleManualTaxEntry = (e) => {
     e.preventDefault();
     
-    // Ensure all values are converted to numbers
     const income = safeToNumber(manualTaxData.income);
     const withholdings = safeToNumber(manualTaxData.withholdings);
     const deductions = safeToNumber(manualTaxData.deductions) || 12550;
@@ -214,7 +213,6 @@ function Dashboard() {
       created_at: new Date().toISOString()
     };
     
-    // Calculate refund vs owed
     const taxOwed = (income - deductions) * 0.22;
     if (withholdings > taxOwed) {
       newReturn.refund_amount = withholdings - taxOwed;
@@ -249,7 +247,11 @@ function Dashboard() {
 
   const stats = [
     { title: 'Total Returns', value: taxReturns.length, icon: '📄' },
-    { title: 'Total Refunds', value: `$${taxReturns.reduce((sum, tr) => sum + safeToNumber(tr.refund_amount), 0).toLocaleString()}`, icon: '💰' },
+    { 
+      title: 'Total Refunds', 
+      value: '$' + taxReturns.reduce((sum, tr) => sum + safeToNumber(tr.refund_amount), 0).toLocaleString(), 
+      icon: '💰' 
+    },
     { title: 'AI Generated', value: taxReturns.filter(tr => tr.auto_generated).length, icon: '🤖' },
     { title: 'Documents', value: documents.length, icon: '📤' }
   ];
@@ -412,7 +414,7 @@ function Dashboard() {
                   Smart Tax Entry
                 </h2>
                 <p style={{ color: '#e2e8f0', fontSize: '1.125rem' }}>
-                  {currentDocument ? `Processing: ${currentDocument.filename}` : 'Manual tax information entry'}
+                  {currentDocument ? 'Processing: ' + currentDocument.filename : 'Manual tax information entry'}
                 </p>
               </div>
             </div>
@@ -742,14 +744,17 @@ function Dashboard() {
                 description: "Access your complete tax return history",
                 gradient: "linear-gradient(135deg, #10b981, #14b8a6)",
                 action: () => {
-                  alert(`You have ${taxReturns.length} tax returns:\n\n${taxReturns.map(tr => `• ${tr.tax_year}: ${tr.status} - ${safeToNumber(tr.income).toLocaleString()}`).join('\n')}`);
+                  const returnsList = taxReturns.map(tr => 
+                    '• ' + tr.tax_year + ': ' + tr.status + ' - ' + safeToNumber(tr.income).toLocaleString()
+                  ).join('\n');
+                  alert('You have ' + taxReturns.length + ' tax returns:\n\n' + returnsList);
                 }
               }
             ].map((item, index) => (
               <div
                 key={index}
                 style={{
-                  background: `${item.gradient.replace('135deg', '135deg').replace(')', ', 0.1)')}`,
+                  background: item.gradient.replace(')', ', 0.1)'),
                   backdropFilter: 'blur(20px)',
                   border: '1px solid rgba(255, 255, 255, 0.2)',
                   borderRadius: '2rem',
@@ -1318,10 +1323,10 @@ function Dashboard() {
                   marginBottom: '2rem'
                 }}>
                   {[
-                    { label: "Income", value: `${safeToNumber(taxReturn.income).toLocaleString()}`, icon: "💰", color: "#10b981" },
-                    { label: "Deductions", value: `${safeToNumber(taxReturn.deductions).toLocaleString()}`, icon: "📄", color: "#3b82f6" },
-                    { label: "Tax Owed", value: `${safeToFixed(taxReturn.tax_owed)}`, icon: "⚠️", color: "#f59e0b" },
-                    { label: "Withholdings", value: `${safeToFixed(taxReturn.withholdings)}`, icon: "🛡️", color: "#8b5cf6" }
+                    { label: "Income", value: safeToNumber(taxReturn.income).toLocaleString(), icon: "💰", color: "#10b981" },
+                    { label: "Deductions", value: safeToNumber(taxReturn.deductions).toLocaleString(), icon: "📄", color: "#3b82f6" },
+                    { label: "Tax Owed", value: safeToFixed(taxReturn.tax_owed), icon: "⚠️", color: "#f59e0b" },
+                    { label: "Withholdings", value: safeToFixed(taxReturn.withholdings), icon: "🛡️", color: "#8b5cf6" }
                   ].map((item, i) => (
                     <div key={i} style={{
                       textAlign: 'center',
@@ -1416,19 +1421,19 @@ function Dashboard() {
                   <button 
                     onClick={() => {
                       const refundOrOwed = safeToNumber(taxReturn.refund_amount) > 0 
-                        ? `Refund of ${safeToFixed(taxReturn.refund_amount)}`
-                        : `Amount Owed: ${safeToFixed(taxReturn.amount_owed)}`;
+                        ? 'Refund of ' + safeToFixed(taxReturn.refund_amount)
+                        : 'Amount Owed: ' + safeToFixed(taxReturn.amount_owed);
                       
-                      const returnInfo = `Tax Return Details - ${taxReturn.tax_year}\n\n` +
-                        `📊 Financial Summary:\n` +
-                        `• Income: ${safeToNumber(taxReturn.income).toLocaleString()}\n` +
-                        `• Deductions: ${safeToNumber(taxReturn.deductions).toLocaleString()}\n` +
-                        `• Tax Owed: ${safeToFixed(taxReturn.tax_owed)}\n` +
-                        `• Withholdings: ${safeToFixed(taxReturn.withholdings)}\n\n` +
-                        `💰 Result: ${refundOrOwed}\n\n` +
-                        `📅 Status: ${taxReturn.status.toUpperCase()}\n` +
-                        `🤖 AI Generated: ${taxReturn.auto_generated ? 'Yes' : 'No'}\n` +
-                        `📄 Source: ${taxReturn.source_document}`;
+                      const returnInfo = 'Tax Return Details - ' + taxReturn.tax_year + '\n\n' +
+                        'Financial Summary:\n' +
+                        '• Income: ' + safeToNumber(taxReturn.income).toLocaleString() + '\n' +
+                        '• Deductions: ' + safeToNumber(taxReturn.deductions).toLocaleString() + '\n' +
+                        '• Tax Owed: ' + safeToFixed(taxReturn.tax_owed) + '\n' +
+                        '• Withholdings: ' + safeToFixed(taxReturn.withholdings) + '\n\n' +
+                        'Result: ' + refundOrOwed + '\n\n' +
+                        'Status: ' + taxReturn.status.toUpperCase() + '\n' +
+                        'AI Generated: ' + (taxReturn.auto_generated ? 'Yes' : 'No') + '\n' +
+                        'Source: ' + taxReturn.source_document;
                       
                       alert(returnInfo);
                     }}
@@ -1450,11 +1455,15 @@ function Dashboard() {
                   {taxReturn.status === 'draft' && (
                     <button 
                       onClick={() => {
+                        const newIncome = prompt('Edit Income for ' + taxReturn.tax_year + ':', taxReturn.income);
+                        const newWithholdings = prompt('Edit Withholdings for ' + taxReturn.tax_year + ':', taxReturn.withholdings);
+                        const newDeductions = prompt('Edit Deductions for ' + taxReturn.tax_year + ':', taxReturn.deductions);
+                        
                         const updatedReturn = {
                           ...taxReturn,
-                          income: safeToNumber(prompt(`Edit Income for ${taxReturn.tax_year}:`, taxReturn.income) || taxReturn.income),
-                          withholdings: safeToNumber(prompt(`Edit Withholdings for ${taxReturn.tax_year}:`, taxReturn.withholdings) || taxReturn.withholdings),
-                          deductions: safeToNumber(prompt(`Edit Deductions for ${taxReturn.tax_year}:`, taxReturn.deductions) || taxReturn.deductions)
+                          income: safeToNumber(newIncome || taxReturn.income),
+                          withholdings: safeToNumber(newWithholdings || taxReturn.withholdings),
+                          deductions: safeToNumber(newDeductions || taxReturn.deductions)
                         };
                         
                         const taxOwed = (updatedReturn.income - updatedReturn.deductions) * 0.22;
@@ -1470,7 +1479,7 @@ function Dashboard() {
                           tr.id === taxReturn.id ? updatedReturn : tr
                         ));
                         
-                        alert(`Tax return for ${taxReturn.tax_year} updated successfully!`);
+                        alert('Tax return for ' + taxReturn.tax_year + ' updated successfully!');
                       }}
                       style={{
                         flex: 1,
@@ -1491,36 +1500,35 @@ function Dashboard() {
                   <button 
                     onClick={() => {
                       const refundOrOwedResult = safeToNumber(taxReturn.refund_amount) > 0 
-                        ? `Refund Amount: ${safeToFixed(taxReturn.refund_amount)}`
-                        : `Amount Owed: ${safeToFixed(taxReturn.amount_owed)}`;
+                        ? 'Refund Amount: ' + safeToFixed(taxReturn.refund_amount)
+                        : 'Amount Owed: ' + safeToFixed(taxReturn.amount_owed);
                       
-                      const pdfContent = `TAX RETURN SUMMARY - ${taxReturn.tax_year}\n\n` +
-                        `Taxpayer: ${user?.full_name}\n` +
-                        `Tax Year: ${taxReturn.tax_year}\n` +
-                        `Filing Status: ${taxReturn.status.toUpperCase()}\n\n` +
-                        `INCOME INFORMATION:\n` +
-                        `Total Income: ${safeToNumber(taxReturn.income).toLocaleString()}\n` +
-                        `Deductions: ${safeToNumber(taxReturn.deductions).toLocaleString()}\n` +
-                        `Tax Owed: ${safeToFixed(taxReturn.tax_owed)}\n` +
-                        `Withholdings: ${safeToFixed(taxReturn.withholdings)}\n\n` +
-                        `RESULT:\n` +
-                        `${refundOrOwedResult}\n\n` +
-                        `Generated by TaxBox.AI\n` +
-                        `${taxReturn.auto_generated ? 'AI-Generated from: ' + taxReturn.source_document : 'Manually entered'}\n` +
-                        `Date: ${new Date(taxReturn.created_at).toLocaleDateString()}`;
+                      const pdfContent = 'TAX RETURN SUMMARY - ' + taxReturn.tax_year + '\n\n' +
+                        'Taxpayer: ' + (user?.full_name || 'Your Name') + '\n' +
+                        'Tax Year: ' + taxReturn.tax_year + '\n' +
+                        'Filing Status: ' + taxReturn.status.toUpperCase() + '\n\n' +
+                        'INCOME INFORMATION:\n' +
+                        'Total Income: ' + safeToNumber(taxReturn.income).toLocaleString() + '\n' +
+                        'Deductions: ' + safeToNumber(taxReturn.deductions).toLocaleString() + '\n' +
+                        'Tax Owed: ' + safeToFixed(taxReturn.tax_owed) + '\n' +
+                        'Withholdings: ' + safeToFixed(taxReturn.withholdings) + '\n\n' +
+                        'RESULT:\n' +
+                        refundOrOwedResult + '\n\n' +
+                        'Generated by TaxBox.AI\n' +
+                        (taxReturn.auto_generated ? 'AI-Generated from: ' + taxReturn.source_document : 'Manually entered') + '\n' +
+                        'Date: ' + new Date(taxReturn.created_at).toLocaleDateString();
                       
-                      // Create and download as text file
                       const blob = new Blob([pdfContent], { type: 'text/plain' });
                       const url = window.URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
-                      a.download = `tax_return_${taxReturn.tax_year}_${taxReturn.id}.txt`;
+                      a.download = 'tax_return_' + taxReturn.tax_year + '_' + taxReturn.id + '.txt';
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);
                       window.URL.revokeObjectURL(url);
                       
-                      alert(`Tax return for ${taxReturn.tax_year} downloaded successfully!`);
+                      alert('Tax return for ' + taxReturn.tax_year + ' downloaded successfully!');
                     }}
                     style={{
                       padding: '1rem 1.5rem',
@@ -1680,19 +1688,16 @@ function Dashboard() {
                       <p style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
                         {safeToNumber(detailViewData.refund_amount) > 0 ? '💰' : '⚠️'}
                       </p>
-                      const resultDisplay = safeToNumber(detailViewData.refund_amount) > 0 
-                        ? `Refund: ${safeToFixed(detailViewData.refund_amount)}`
-                        : `Amount Owed: ${safeToFixed(detailViewData.amount_owed)}`;
-                      
-                      return (
-                        <p style={{ 
-                          fontWeight: 'bold', 
-                          fontSize: '1.25rem',
-                          color: safeToNumber(detailViewData.refund_amount) > 0 ? '#10b981' : '#ef4444'
-                        }}>
-                          {resultDisplay}
-                        </p>
-                      );
+                      <p style={{ 
+                        fontWeight: 'bold', 
+                        fontSize: '1.25rem',
+                        color: safeToNumber(detailViewData.refund_amount) > 0 ? '#10b981' : '#ef4444'
+                      }}>
+                        {safeToNumber(detailViewData.refund_amount) > 0 
+                          ? 'Refund: ' + safeToFixed(detailViewData.refund_amount)
+                          : 'Amount Owed: ' + safeToFixed(detailViewData.amount_owed)
+                        }
+                      </p>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
@@ -1720,65 +1725,6 @@ function Dashboard() {
                         <p style={{ fontWeight: '600', fontSize: '0.875rem' }}>{new Date(detailViewData.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* All Returns View */}
-              {detailViewType === 'allReturns' && detailViewData && (
-                <div style={{ color: 'white' }}>
-                  <p style={{ color: '#9ca3af', marginBottom: '1.5rem' }}>
-                    You have {detailViewData.length} tax return{detailViewData.length !== 1 ? 's' : ''}
-                  </p>
-                  <div style={{ display: 'grid', gap: '1rem' }}>
-                    {detailViewData.map((taxReturn) => (
-                      <div key={taxReturn.id} style={{
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        borderRadius: '1rem',
-                        padding: '1rem',
-                        border: '1px solid rgba(255, 255, 255, 0.1)'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                          <h4 style={{ fontWeight: 'bold', fontSize: '1.125rem' }}>Tax Year {taxReturn.tax_year}</h4>
-                          <span style={{
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '1rem',
-                            fontSize: '0.75rem',
-                            fontWeight: 'bold',
-                            background: taxReturn.status === 'draft' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)',
-                            color: taxReturn.status === 'draft' ? '#fbbf24' : '#10b981'
-                          }}>
-                            {taxReturn.status.toUpperCase()}
-                          </span>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem', fontSize: '0.875rem' }}>
-                          <div>
-                            <span style={{ color: '#9ca3af' }}>Income: </span>
-                            <span style={{ fontWeight: '600', color: '#10b981' }}>${safeToNumber(taxReturn.income).toLocaleString()}</span>
-                          </div>
-                          <div>
-                            <span style={{ color: '#9ca3af' }}>Result: </span>
-                            const resultText = safeToNumber(taxReturn.refund_amount) > 0 
-                              ? `+${safeToFixed(taxReturn.refund_amount)}`
-                              : `-${safeToFixed(taxReturn.amount_owed)}`;
-                            
-                            return (
-                              <span style={{ 
-                                fontWeight: '600',
-                                color: safeToNumber(taxReturn.refund_amount) > 0 ? '#10b981' : '#ef4444'
-                              }}>
-                                {resultText}
-                              </span>
-                            );
-                          </div>
-                          {taxReturn.auto_generated && (
-                            <div>
-                              <span style={{ color: '#8b5cf6' }}>🤖 AI Generated</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}
@@ -1856,4 +1802,3 @@ function Dashboard() {
 }
 
 export default Dashboard;
-                        `
