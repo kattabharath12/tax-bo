@@ -92,32 +92,24 @@ function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <div className="min-h-screen bg-gray-50 py-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="container">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-          <div className="flex justify-between items-center flex-wrap gap-4">
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Welcome, {user?.full_name}! 👋</h1>
-              <p className="text-gray-600 mt-1">Ready to manage your taxes with advanced filing status support?</p>
+              <h1 className="text-2xl">Welcome, {user?.full_name}! 👋</h1>
+              <p>Ready to file your taxes?</p>
             </div>
-            <div className="flex gap-3 flex-wrap">
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button 
                 onClick={() => setShowTaxForm(false)} 
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition duration-200"
+                className="btn btn-secondary"
               >
                 Dashboard
               </button>
-              <button 
-                onClick={navigateToTaxReturns} 
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200"
-              >
-                Tax Returns
-              </button>
-              <button 
-                onClick={handleLogout} 
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200"
-              >
+              <button onClick={handleLogout} className="btn btn-secondary">
                 Logout
               </button>
             </div>
