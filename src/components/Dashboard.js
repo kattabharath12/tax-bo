@@ -1,12 +1,4 @@
-{[
-                      { label: "Income", value: `${(taxReturn.income || 0).toLocaleString()}`, icon: "💰", color: "text-green-400" },
-                      { label: "Deductions", value: `${(taxReturn.deductions || 0).toLocaleString()}`, icon: "📄", color: "text-blue-400" },
-                      { label: "Tax Owed", value: `${(taxReturn.tax_owed || 0).toFixed(2)}`, icon: "⚠️", color: "text-orange-400" },
-                      { label: "Withholdings", value: `${(taxReturn.withholdings || 0).toFixed(2)}`, icon: "🛡️", color: "text-purple-400" }
-                    ].map((item, i) => (
-                      <div key={i} className="text-center p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <span className={`text-xl mx-auto mb-1 block ${item.color}`}>{item.icon}</span>
-                        <p className="text-xs text-gray-400 font-medium">{item.labelimport React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 function Dashboard() {
   // Simulated data and state management
@@ -148,7 +140,7 @@ function Dashboard() {
 
   const stats = [
     { title: 'Total Returns', value: taxReturns.length, icon: '📄', gradient: 'from-blue-500 to-cyan-500' },
-    { title: 'Total Refunds', value: `${taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0).toLocaleString()}`, icon: '💰', gradient: 'from-emerald-500 to-green-500' },
+    { title: 'Total Refunds', value: `$${taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0).toLocaleString()}`, icon: '💰', gradient: 'from-emerald-500 to-green-500' },
     { title: 'AI Generated', value: taxReturns.filter(tr => tr.auto_generated).length, icon: '🤖', gradient: 'from-purple-500 to-indigo-500' },
     { title: 'Documents', value: documents.length, icon: '📤', gradient: 'from-orange-500 to-red-500' }
   ];
@@ -645,13 +637,13 @@ function Dashboard() {
 
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     {[
-                      { label: "Income", value: `${(taxReturn.income || 0).toLocaleString()}`, icon: DollarSign, color: "text-green-400" },
-                      { label: "Deductions", value: `${(taxReturn.deductions || 0).toLocaleString()}`, icon: FileText, color: "text-blue-400" },
-                      { label: "Tax Owed", value: `${(taxReturn.tax_owed || 0).toFixed(2)}`, icon: AlertCircle, color: "text-orange-400" },
-                      { label: "Withholdings", value: `${(taxReturn.withholdings || 0).toFixed(2)}`, icon: Shield, color: "text-purple-400" }
+                      { label: "Income", value: `${(taxReturn.income || 0).toLocaleString()}`, icon: "💰", color: "text-green-400" },
+                      { label: "Deductions", value: `${(taxReturn.deductions || 0).toLocaleString()}`, icon: "📄", color: "text-blue-400" },
+                      { label: "Tax Owed", value: `${(taxReturn.tax_owed || 0).toFixed(2)}`, icon: "⚠️", color: "text-orange-400" },
+                      { label: "Withholdings", value: `${(taxReturn.withholdings || 0).toFixed(2)}`, icon: "🛡️", color: "text-purple-400" }
                     ].map((item, i) => (
                       <div key={i} className="text-center p-3 bg-white/5 border border-white/10 rounded-xl">
-                        <item.icon className={`w-5 h-5 mx-auto mb-1 ${item.color}`} />
+                        <span className={`text-xl mx-auto mb-1 block ${item.color}`}>{item.icon}</span>
                         <p className="text-xs text-gray-400 font-medium">{item.label}</p>
                         <p className="text-sm font-bold text-white">{item.value}</p>
                       </div>
@@ -661,14 +653,14 @@ function Dashboard() {
                   <div className="mb-6 p-4 rounded-2xl border-2 border-dashed border-white/20 bg-white/5">
                     {(taxReturn.refund_amount || 0) > 0 ? (
                       <div className="text-center">
-                        <DollarSign className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                        <span className="text-4xl text-green-400 block mb-2">💰</span>
                         <p className="text-green-400 font-bold text-lg">
                           Refund: ${(taxReturn.refund_amount || 0).toFixed(2)}
                         </p>
                       </div>
                     ) : (
                       <div className="text-center">
-                        <AlertCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+                        <span className="text-4xl text-red-400 block mb-2">⚠️</span>
                         <p className="text-red-400 font-bold text-lg">
                           Amount Owed: ${(taxReturn.amount_owed || 0).toFixed(2)}
                         </p>
@@ -678,17 +670,17 @@ function Dashboard() {
                   
                   <div className="flex gap-3">
                     <button className="flex-1 px-4 py-2 bg-gray-500/20 border border-gray-500/30 text-gray-300 text-sm rounded-xl hover:bg-gray-500/30 transition-all duration-200 font-medium flex items-center justify-center gap-1">
-                      <Eye className="w-4 h-4" />
+                      <span>👁️</span>
                       View
                     </button>
                     {taxReturn.status === 'draft' && (
                       <button className="flex-1 px-4 py-2 bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm rounded-xl hover:bg-blue-500/30 transition-all duration-200 font-medium flex items-center justify-center gap-1">
-                        <Edit className="w-4 h-4" />
+                        <span>✏️</span>
                         Edit
                       </button>
                     )}
                     <button className="px-4 py-2 bg-green-500/20 border border-green-500/30 text-green-300 text-sm rounded-xl hover:bg-green-500/30 transition-all duration-200 font-medium">
-                      <Download className="w-4 h-4" />
+                      <span>📥</span>
                     </button>
                   </div>
                 </div>
@@ -700,36 +692,36 @@ function Dashboard() {
           <div className="mt-8 p-6 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-blue-500/20 rounded-2xl">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-6 h-6 text-white" />
+                <span className="text-2xl">✨</span>
               </div>
               <div>
                 <h4 className="text-lg font-bold text-white mb-3">How Smart Filing Works</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <ul className="space-y-2 text-sm text-gray-300">
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400">✅</span>
                       Upload W-2, 1099, 1098, and other tax documents
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400">✅</span>
                       AI extracts data automatically when possible
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400">✅</span>
                       Manual entry option for maximum flexibility
                     </li>
                   </ul>
                   <ul className="space-y-2 text-sm text-gray-300">
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400">✅</span>
                       Automatic tax return creation and updates
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400">✅</span>
                       Review and edit before final submission
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400">✅</span>
                       Professional PDF generation and download
                     </li>
                   </ul>
