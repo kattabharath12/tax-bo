@@ -427,7 +427,7 @@ function Dashboard() {
                         </button>
                       )}
                       <button 
-                        onClick={() => downloadTaxReturn(taxReturn.id)}
+                        onClick={() => downloadTaxReturn(taxReturn)}
                         className="px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition duration-200"
                       >
                         📥
