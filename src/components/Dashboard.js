@@ -157,79 +157,137 @@ function Dashboard() {
   };
 
   const stats = [
-    { title: 'Total Returns', value: taxReturns.length, icon: '📄', gradient: 'from-blue-500 to-cyan-500' },
-    { title: 'Total Refunds', value: `$${taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0).toLocaleString()}`, icon: '💰', gradient: 'from-emerald-500 to-green-500' },
-    { title: 'AI Generated', value: taxReturns.filter(tr => tr.auto_generated).length, icon: '🤖', gradient: 'from-purple-500 to-indigo-500' },
-    { title: 'Documents', value: documents.length, icon: '📤', gradient: 'from-orange-500 to-red-500' }
+    { title: 'Total Returns', value: taxReturns.length, icon: '📄' },
+    { title: 'Total Refunds', value: `$${taxReturns.reduce((sum, tr) => sum + (tr.refund_amount || 0), 0).toLocaleString()}`, icon: '💰' },
+    { title: 'AI Generated', value: taxReturns.filter(tr => tr.auto_generated).length, icon: '🤖' },
+    { title: 'Documents', value: documents.length, icon: '📤' }
   ];
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white relative overflow-hidden">
-      {/* Animated background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -inset-10 opacity-50">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
-          <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
-          <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
-        </div>
-      </div>
+  const containerStyle = {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #1e293b 0%, #7c3aed 50%, #1e293b 100%)',
+    color: 'white',
+    fontFamily: 'system-ui, -apple-system, sans-serif'
+  };
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  const cardStyle = {
+    background: 'rgba(255, 255, 255, 0.1)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: '24px',
+    padding: '32px',
+    marginBottom: '32px'
+  };
+
+  const buttonStyle = {
+    background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '16px',
+    padding: '12px 24px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    fontSize: '14px'
+  };
+
+  const inputStyle = {
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: '12px',
+    padding: '12px 16px',
+    color: 'white',
+    fontSize: '14px',
+    width: '100%'
+  };
+
+  return (
+    <div style={containerStyle}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 16px' }}>
+        
         {/* Debug Console */}
-        <div className="bg-black/40 backdrop-blur-md border border-green-500/20 rounded-2xl p-6 mb-8 font-mono text-xs overflow-hidden">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex gap-1">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+        <div style={{
+          ...cardStyle,
+          background: 'rgba(0, 0, 0, 0.6)',
+          border: '1px solid #10b981',
+          fontFamily: 'monospace',
+          fontSize: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <div style={{ width: '12px', height: '12px', backgroundColor: '#ef4444', borderRadius: '50%' }}></div>
+              <div style={{ width: '12px', height: '12px', backgroundColor: '#eab308', borderRadius: '50%' }}></div>
+              <div style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '50%' }}></div>
             </div>
-            <span className="text-green-400 font-bold">TaxBox.AI Terminal</span>
+            <span style={{ color: '#10b981', fontWeight: 'bold' }}>TaxBox.AI Terminal</span>
             <button 
               onClick={() => setDebugInfo('System ready... 🚀')}
-              className="ml-auto text-red-400 hover:text-red-300 transition-colors"
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
             >
               Clear
             </button>
           </div>
-          <div className="text-green-400 max-h-32 overflow-y-auto leading-relaxed">
+          <div style={{ color: '#10b981', maxHeight: '120px', overflow: 'auto', whiteSpace: 'pre-wrap' }}>
             {debugInfo}
           </div>
         </div>
 
         {/* Header */}
-        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 mb-8">
-          <div className="flex justify-between items-center flex-wrap gap-6">
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px' }}>
             <div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-3">
+              <h1 style={{ 
+                fontSize: '48px', 
+                fontWeight: 'bold', 
+                background: 'linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                marginBottom: '12px'
+              }}>
                 Hey {user?.full_name}! ✨
               </h1>
-              <p className="text-xl text-gray-300">
+              <p style={{ fontSize: '20px', color: '#d1d5db' }}>
                 Experience the future of tax filing with AI-powered automation
               </p>
             </div>
-            <div className="flex items-center gap-6">
-              {/* Smart Filing Toggle */}
-              <div className="flex items-center gap-4 bg-white/10 backdrop-blur rounded-2xl p-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">✨</span>
-                  <span className="font-medium">Smart Filing</span>
-                </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '16px', padding: '16px' }}>
+                <span style={{ fontSize: '24px' }}>✨</span>
+                <span style={{ fontWeight: '500' }}>Smart Filing</span>
                 <button
                   onClick={() => setAutoFilingEnabled(!autoFilingEnabled)}
-                  className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    autoFilingEnabled ? 'bg-gradient-to-r from-purple-500 to-cyan-500' : 'bg-gray-600'
-                  }`}
+                  style={{
+                    width: '56px',
+                    height: '32px',
+                    borderRadius: '16px',
+                    border: 'none',
+                    background: autoFilingEnabled ? 'linear-gradient(135deg, #8b5cf6, #06b6d4)' : '#6b7280',
+                    position: 'relative',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease'
+                  }}
                 >
-                  <span
-                    className={`pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      autoFilingEnabled ? 'translate-x-6' : 'translate-x-0'
-                    }`}
-                  />
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    backgroundColor: 'white',
+                    borderRadius: '14px',
+                    position: 'absolute',
+                    top: '2px',
+                    left: autoFilingEnabled ? '26px' : '2px',
+                    transition: 'all 0.3s ease',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }}></div>
                 </button>
               </div>
               <button 
                 onClick={() => addDebugInfo('🚪 User logged out')}
-                className="px-6 py-3 bg-gradient-to-r from-red-500/20 to-pink-500/20 border border-red-500/30 text-red-300 rounded-2xl hover:from-red-500/30 hover:to-pink-500/30 transition-all duration-300"
+                style={{
+                  ...buttonStyle,
+                  background: 'rgba(239, 68, 68, 0.2)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#fca5a5'
+                }}
               >
                 Logout
               </button>
@@ -239,15 +297,25 @@ function Dashboard() {
 
         {/* Processing Indicator */}
         {processingDocument && (
-          <div className="bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/30 rounded-2xl p-6 mb-8">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="w-10 h-10 border-4 border-purple-300/30 border-t-purple-400 rounded-full animate-spin"></div>
-                <div className="absolute inset-0 w-10 h-10 border-4 border-cyan-300/30 border-b-cyan-400 rounded-full animate-spin"></div>
+          <div style={{
+            ...cardStyle,
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2))',
+            border: '1px solid rgba(139, 92, 246, 0.3)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ position: 'relative' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  border: '4px solid rgba(139, 92, 246, 0.3)',
+                  borderTop: '4px solid #8b5cf6',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></div>
               </div>
               <div>
-                <h3 className="text-xl font-bold text-purple-300">AI Processing Document</h3>
-                <p className="text-gray-300">Advanced neural networks analyzing your tax data...</p>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: '#c084fc', marginBottom: '4px' }}>AI Processing Document</h3>
+                <p style={{ color: '#d1d5db' }}>Advanced neural networks analyzing your tax data...</p>
               </div>
             </div>
           </div>
@@ -255,27 +323,38 @@ function Dashboard() {
 
         {/* Manual Entry Form */}
         {showManualEntry && (
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 mb-8">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center">
-                <span className="text-3xl">📝</span>
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px'
+              }}>
+                📝
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Smart Tax Entry</h2>
-                <p className="text-gray-300">
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>Smart Tax Entry</h2>
+                <p style={{ color: '#d1d5db' }}>
                   {currentDocument ? `Processing: ${currentDocument.filename}` : 'Manual tax information entry'}
                 </p>
               </div>
             </div>
             
-            <form onSubmit={handleManualTaxEntry} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={handleManualTaxEntry}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '24px' }}>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Document Type</label>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#d1d5db', marginBottom: '8px' }}>
+                    Document Type
+                  </label>
                   <select
                     value={manualTaxData.document_type}
                     onChange={(e) => setManualTaxData(prev => ({...prev, document_type: e.target.value}))}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:border-purple-400 focus:ring-2 focus:ring-purple-400/50 transition-all duration-200"
+                    style={inputStyle}
                   >
                     <option value="w2">💼 W-2 (Wage Statement)</option>
                     <option value="1099">💰 1099 (Miscellaneous Income)</option>
@@ -285,11 +364,13 @@ function Dashboard() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Tax Year</label>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#d1d5db', marginBottom: '8px' }}>
+                    Tax Year
+                  </label>
                   <select
                     value={manualTaxData.tax_year}
                     onChange={(e) => setManualTaxData(prev => ({...prev, tax_year: parseInt(e.target.value)}))}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:border-purple-400 focus:ring-2 focus:ring-purple-400/50 transition-all duration-200"
+                    style={inputStyle}
                   >
                     <option value={2024}>2024</option>
                     <option value={2023}>2023</option>
@@ -298,57 +379,50 @@ function Dashboard() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">💵 Income/Wages ($)</label>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#d1d5db', marginBottom: '8px' }}>
+                    💵 Income/Wages ($)
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     value={manualTaxData.income}
                     onChange={(e) => setManualTaxData(prev => ({...prev, income: e.target.value}))}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:border-green-400 focus:ring-2 focus:ring-green-400/50 transition-all duration-200"
+                    style={inputStyle}
                     placeholder="75,000.00"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">🧾 Federal Tax Withheld ($)</label>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#d1d5db', marginBottom: '8px' }}>
+                    🧾 Federal Tax Withheld ($)
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     value={manualTaxData.withholdings}
                     onChange={(e) => setManualTaxData(prev => ({...prev, withholdings: e.target.value}))}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:border-green-400 focus:ring-2 focus:ring-green-400/50 transition-all duration-200"
+                    style={inputStyle}
                     placeholder="8,500.00"
-                  />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">📋 Deductions ($) - Optional</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={manualTaxData.deductions}
-                    onChange={(e) => setManualTaxData(prev => ({...prev, deductions: e.target.value}))}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/50 transition-all duration-200"
-                    placeholder="12,550 (Leave blank for standard deduction)"
                   />
                 </div>
               </div>
 
-              <div className="flex gap-4 justify-end pt-4">
+              <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
                   onClick={() => {
                     setShowManualEntry(false);
                     setCurrentDocument(null);
                   }}
-                  className="px-6 py-3 bg-gray-600/50 text-gray-300 rounded-xl hover:bg-gray-600/70 transition-all duration-200"
+                  style={{
+                    ...buttonStyle,
+                    background: 'rgba(107, 114, 128, 0.5)',
+                    color: '#d1d5db'
+                  }}
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="px-8 py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white rounded-xl hover:from-purple-600 hover:to-cyan-600 transform hover:scale-105 transition-all duration-200 shadow-lg font-semibold"
-                >
+                <button type="submit" style={buttonStyle}>
                   ✨ Create Tax Return
                 </button>
               </div>
@@ -358,51 +432,87 @@ function Dashboard() {
 
         {/* Upload Form */}
         {showUploadForm && (
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-8 mb-8">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl flex items-center justify-center">
-                <span className="text-3xl">📤</span>
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px'
+              }}>
+                📤
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Upload Tax Documents</h2>
-                <p className="text-gray-300">Drag & drop or click to upload your tax documents</p>
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>Upload Tax Documents</h2>
+                <p style={{ color: '#d1d5db' }}>Drag & drop or click to upload your tax documents</p>
               </div>
             </div>
             
-            <div className="border-2 border-dashed border-gray-500/50 rounded-2xl p-8 text-center hover:border-cyan-400/50 transition-all duration-300 bg-white/5">
-              <label className="cursor-pointer group">
-                <div className="flex flex-col items-center">
-                  <div className="w-20 h-20 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-3xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                    <span className="text-4xl">📤</span>
-                  </div>
-                  <h3 className="text-2xl font-bold mb-3 group-hover:text-cyan-400 transition-colors duration-300">
-                    Choose Files or Drag & Drop
-                  </h3>
-                  <p className="text-gray-300 mb-6 max-w-md">
-                    Upload your W-2, 1099, 1098, and other tax documents for AI processing
-                  </p>
-                  <div className="inline-flex items-center gap-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white px-8 py-4 rounded-2xl font-bold text-lg group-hover:from-cyan-600 group-hover:to-purple-600 transition-all duration-300">
-                    <span className="text-xl">⚡</span>
-                    Select Files
-                  </div>
+            <div style={{
+              border: '2px dashed rgba(107, 114, 128, 0.5)',
+              borderRadius: '16px',
+              padding: '32px',
+              textAlign: 'center',
+              background: 'rgba(255, 255, 255, 0.05)',
+              marginBottom: '24px'
+            }}>
+              <label style={{ cursor: 'pointer', display: 'block' }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
+                  borderRadius: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '32px',
+                  margin: '0 auto 24px',
+                  transition: 'transform 0.3s ease'
+                }}>
+                  📤
+                </div>
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '12px' }}>
+                  Choose Files or Drag & Drop
+                </h3>
+                <p style={{ color: '#d1d5db', marginBottom: '24px', maxWidth: '400px', margin: '0 auto 24px' }}>
+                  Upload your W-2, 1099, 1098, and other tax documents for AI processing
+                </p>
+                <div style={{
+                  ...buttonStyle,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  fontSize: '16px',
+                  padding: '16px 32px'
+                }}>
+                  <span style={{ fontSize: '20px' }}>⚡</span>
+                  Select Files
                 </div>
                 <input
                   type="file"
                   onChange={handleUploadDocument}
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
-                  className="hidden"
+                  style={{ display: 'none' }}
                   disabled={processingDocument}
                 />
               </label>
-              <p className="text-sm text-gray-400 mt-6">
+              <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '16px' }}>
                 Supported: PDF, JPG, PNG, DOC, DOCX, TXT • Max 10MB per file
               </p>
             </div>
             
-            <div className="flex justify-end mt-6">
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button 
                 onClick={() => setShowUploadForm(false)} 
-                className="px-6 py-3 bg-gray-600/50 text-gray-300 rounded-xl hover:bg-gray-600/70 transition-all duration-200"
+                style={{
+                  ...buttonStyle,
+                  background: 'rgba(107, 114, 128, 0.5)',
+                  color: '#d1d5db'
+                }}
               >
                 Cancel
               </button>
@@ -412,47 +522,66 @@ function Dashboard() {
 
         {/* Quick Actions */}
         {!showUploadForm && !showManualEntry && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '32px', marginBottom: '32px' }}>
             {[
               {
                 icon: "📝",
                 title: "Manual Tax Filing",
                 description: "Complete control over your tax return process",
-                gradient: "from-blue-500 to-cyan-500",
                 action: () => addDebugInfo('📝 Manual filing mode selected')
               },
               {
                 icon: "🤖",
                 title: "AI-Powered Filing",
                 description: "Upload documents and let AI handle the rest!",
-                gradient: "from-purple-500 to-pink-500",
                 action: () => setShowUploadForm(true)
               },
               {
                 icon: "📄",
                 title: "View All Returns",
                 description: "Access your complete tax return history",
-                gradient: "from-emerald-500 to-teal-500",
                 action: () => addDebugInfo('📄 Viewing all tax returns')
               }
             ].map((item, index) => (
               <div
                 key={index}
-                className="group bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-8 text-center hover:bg-white/10 hover:border-white/20 transform hover:scale-105 transition-all duration-300 cursor-pointer"
+                style={{
+                  ...cardStyle,
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  ':hover': { transform: 'scale(1.05)' }
+                }}
                 onClick={item.action}
               >
-                <div className={`w-20 h-20 bg-gradient-to-r ${item.gradient} rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-2xl`}>
-                  <span className="text-4xl">{item.icon}</span>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
+                  borderRadius: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '32px',
+                  margin: '0 auto 24px',
+                  boxShadow: '0 20px 40px rgba(139, 92, 246, 0.3)'
+                }}>
+                  {item.icon}
                 </div>
-                <h3 className="text-xl font-bold mb-3 group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-purple-400 group-hover:bg-clip-text transition-all duration-300">
+                <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '12px' }}>
                   {item.title}
                 </h3>
-                <p className="text-gray-300 mb-6 group-hover:text-gray-200 transition-colors duration-300">
+                <p style={{ color: '#d1d5db', marginBottom: '24px' }}>
                   {item.description}
                 </p>
-                <div className={`inline-flex items-center gap-2 bg-gradient-to-r ${item.gradient} text-white px-6 py-3 rounded-2xl font-semibold group-hover:shadow-lg transition-all duration-300`}>
+                <div style={{
+                  ...buttonStyle,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
                   Get Started
-                  <span className="group-hover:translate-x-1 transition-transform duration-300">→</span>
+                  <span>→</span>
                 </div>
               </div>
             ))}
@@ -460,98 +589,186 @@ function Dashboard() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px', marginBottom: '32px' }}>
           {stats.map((stat, index) => (
-            <div key={index} className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-12 h-12 bg-gradient-to-r ${stat.gradient} rounded-xl flex items-center justify-center`}>
-                  <span className="text-2xl">{stat.icon}</span>
+            <div key={index} style={{
+              ...cardStyle,
+              padding: '24px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px'
+                }}>
+                  {stat.icon}
                 </div>
-                <span className="text-2xl text-green-400">📈</span>
+                <span style={{ fontSize: '24px', color: '#10b981' }}>📈</span>
               </div>
-              <h3 className="text-sm font-medium text-gray-400 mb-2">{stat.title}</h3>
-              <p className="text-2xl font-bold text-white">{stat.value}</p>
+              <h3 style={{ fontSize: '14px', fontWeight: '500', color: '#9ca3af', marginBottom: '8px' }}>{stat.title}</h3>
+              <p style={{ fontSize: '24px', fontWeight: 'bold', color: 'white' }}>{stat.value}</p>
             </div>
           ))}
         </div>
 
         {/* Documents Section */}
-        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-8 mb-8">
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl flex items-center justify-center">
-                <span className="text-2xl">📄</span>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                background: 'linear-gradient(135deg, #f97316, #ef4444)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px'
+              }}>
+                📄
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Your Documents</h2>
-                <p className="text-gray-300">Manage and process your uploaded tax documents</p>
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>Your Documents</h2>
+                <p style={{ color: '#d1d5db' }}>Manage and process your uploaded tax documents</p>
               </div>
             </div>
             <button 
               onClick={() => setShowUploadForm(true)} 
-              className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-2xl hover:from-cyan-600 hover:to-purple-600 transition-all duration-300 font-semibold flex items-center gap-2"
+              style={{
+                ...buttonStyle,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
             >
-              <span className="text-lg">➕</span>
+              <span style={{ fontSize: '16px' }}>➕</span>
               Upload Document
             </button>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px' }}>
             {documents.map((document) => (
               <div 
                 key={document.id} 
-                className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  transition: 'all 0.3s ease'
+                }}
               >
-                <div className="flex items-center mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mr-4">
-                    <span className="text-2xl">📄</span>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '20px',
+                    marginRight: '16px'
+                  }}>
+                    📄
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-white truncate">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {document.filename}
                     </h3>
-                    <p className="text-sm text-gray-400">
+                    <p style={{ fontSize: '14px', color: '#9ca3af' }}>
                       {document.file_type} • {(document.file_size / 1024).toFixed(1)} KB
                     </p>
                   </div>
                 </div>
                 
                 {document.ocr_text ? (
-                  <div className="mb-4 p-3 bg-green-500/20 border border-green-500/30 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-green-400 text-lg">✅</span>
-                      <p className="text-sm font-semibold text-green-300">AI-Ready Document</p>
+                  <div style={{
+                    marginBottom: '16px',
+                    padding: '12px',
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '12px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ color: '#10b981', fontSize: '16px' }}>✅</span>
+                      <p style={{ fontSize: '14px', fontWeight: '600', color: '#6ee7b7' }}>AI-Ready Document</p>
                     </div>
-                    <p className="text-xs text-green-400">Text extracted and ready for processing</p>
+                    <p style={{ fontSize: '12px', color: '#10b981' }}>Text extracted and ready for processing</p>
                   </div>
                 ) : (
-                  <div className="mb-4 p-3 bg-orange-500/20 border border-orange-500/30 rounded-xl">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-orange-400 text-lg">⚠️</span>
-                      <p className="text-sm font-semibold text-orange-300">Manual Processing Available</p>
+                  <div style={{
+                    marginBottom: '16px',
+                    padding: '12px',
+                    background: 'rgba(245, 158, 11, 0.2)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    borderRadius: '12px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ color: '#f59e0b', fontSize: '16px' }}>⚠️</span>
+                      <p style={{ fontSize: '14px', fontWeight: '600', color: '#fbbf24' }}>Manual Processing Available</p>
                     </div>
-                    <p className="text-xs text-orange-400">No text extracted - use manual entry option</p>
+                    <p style={{ fontSize: '12px', color: '#f59e0b' }}>No text extracted - use manual entry option</p>
                   </div>
                 )}
                 
-                <div className="flex gap-2">
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <button 
                     onClick={() => addDebugInfo(`👁️ Viewing document: ${document.filename}`)}
-                    className="flex-1 px-3 py-2 bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm rounded-lg hover:bg-blue-500/30 transition-all duration-200 flex items-center justify-center gap-1"
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      background: 'rgba(59, 130, 246, 0.2)',
+                      border: '1px solid rgba(59, 130, 246, 0.3)',
+                      color: '#93c5fd',
+                      fontSize: '12px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
                   >
                     <span>👁️</span>
                     View
                   </button>
                   <button 
                     onClick={() => handleProcessDocument(document)}
-                    className="flex-1 px-3 py-2 bg-green-500/20 border border-green-500/30 text-green-300 text-sm rounded-lg hover:bg-green-500/30 transition-all duration-200 flex items-center justify-center gap-1"
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      background: 'rgba(16, 185, 129, 0.2)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      color: '#6ee7b7',
+                      fontSize: '12px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
                   >
                     <span>📝</span>
                     Process
                   </button>
                   <button 
                     onClick={() => handleDeleteDocument(document.id)}
-                    className="px-3 py-2 bg-red-500/20 border border-red-500/30 text-red-300 text-sm rounded-lg hover:bg-red-500/30 transition-all duration-200"
+                    style={{
+                      padding: '8px 12px',
+                      background: 'rgba(239, 68, 68, 0.2)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#fca5a5',
+                      fontSize: '12px',
+                      borderRadius: '8px',
+                      cursor: 'pointer'
+                    }}
                   >
                     <span>🗑️</span>
                   </button>
@@ -562,58 +779,103 @@ function Dashboard() {
         </div>
 
         {/* Tax Returns Section */}
-        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-8">
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center">
-                <span className="text-2xl">📊</span>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                background: 'linear-gradient(135deg, #10b981, #14b8a6)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px'
+              }}>
+                📊
               </div>
               <div>
-                <h2 className="text-3xl font-bold">Your Tax Returns</h2>
-                <p className="text-gray-300">Track and manage all your tax filings</p>
+                <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>Your Tax Returns</h2>
+                <p style={{ color: '#d1d5db' }}>Track and manage all your tax filings</p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <button 
                 onClick={() => setShowUploadForm(true)} 
-                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 font-semibold flex items-center gap-2"
+                style={{
+                  ...buttonStyle,
+                  background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
               >
-                <span className="text-lg">🤖</span>
+                <span style={{ fontSize: '16px' }}>🤖</span>
                 Smart Filing
               </button>
               <button 
                 onClick={() => addDebugInfo('📝 Manual filing initiated')}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 font-semibold flex items-center gap-2"
+                style={{
+                  ...buttonStyle,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
               >
-                <span className="text-lg">📝</span>
+                <span style={{ fontSize: '16px' }}>📝</span>
                 Manual Filing
               </button>
             </div>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '32px' }}>
             {taxReturns.map((taxReturn) => (
               <div 
                 key={taxReturn.id} 
-                className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transform hover:scale-105 transition-all duration-300 group"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  transition: 'all 0.3s ease'
+                }}
               >
-                <div className="flex justify-between items-start mb-6">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
                   <div>
-                    <h3 className="text-xl font-bold text-white group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-purple-400 group-hover:bg-clip-text transition-all duration-300">
+                    <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: 'white', marginBottom: '4px' }}>
                       Tax Year {taxReturn.tax_year}
                     </h3>
-                    <p className="text-gray-400">Filed {new Date(taxReturn.created_at).toLocaleDateString()}</p>
+                    <p style={{ color: '#9ca3af' }}>Filed {new Date(taxReturn.created_at).toLocaleDateString()}</p>
                   </div>
-                  <div className="flex gap-2">
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                      taxReturn.status === 'draft' 
-                        ? 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 text-yellow-300' 
-                        : 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 text-green-300'
-                    }`}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      background: taxReturn.status === 'draft' 
+                        ? 'rgba(245, 158, 11, 0.2)' 
+                        : 'rgba(16, 185, 129, 0.2)',
+                      border: taxReturn.status === 'draft'
+                        ? '1px solid rgba(245, 158, 11, 0.3)'
+                        : '1px solid rgba(16, 185, 129, 0.3)',
+                      color: taxReturn.status === 'draft' ? '#fbbf24' : '#6ee7b7'
+                    }}>
                       {taxReturn.status.toUpperCase()}
                     </span>
                     {taxReturn.auto_generated && (
-                      <span className="px-3 py-1 rounded-full text-xs bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-300 font-semibold flex items-center gap-1">
+                      <span style={{
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        background: 'rgba(139, 92, 246, 0.2)',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                        color: '#c084fc',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
                         <span>🤖</span>
                         AI
                       </span>
@@ -622,51 +884,86 @@ function Dashboard() {
                 </div>
 
                 {taxReturn.auto_generated && (
-                  <div className="mb-4 p-3 bg-purple-500/20 border border-purple-500/30 rounded-xl">
-                    <p className="text-sm font-medium text-purple-300 flex items-center gap-2">
+                  <div style={{
+                    marginBottom: '16px',
+                    padding: '12px',
+                    background: 'rgba(139, 92, 246, 0.2)',
+                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                    borderRadius: '12px'
+                  }}>
+                    <p style={{ fontSize: '14px', fontWeight: '500', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span>🤖</span>
                       AI-generated from: {taxReturn.source_document}
                     </p>
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                   {[
-                    { label: "Income", value: `${(taxReturn.income || 0).toLocaleString()}`, icon: "💰", color: "text-green-400" },
-                    { label: "Deductions", value: `${(taxReturn.deductions || 0).toLocaleString()}`, icon: "📄", color: "text-blue-400" },
-                    { label: "Tax Owed", value: `${(taxReturn.tax_owed || 0).toFixed(2)}`, icon: "⚠️", color: "text-orange-400" },
-                    { label: "Withholdings", value: `${(taxReturn.withholdings || 0).toFixed(2)}`, icon: "🛡️", color: "text-purple-400" }
+                    { label: "Income", value: `${(taxReturn.income || 0).toLocaleString()}`, icon: "💰", color: "#10b981" },
+                    { label: "Deductions", value: `${(taxReturn.deductions || 0).toLocaleString()}`, icon: "📄", color: "#3b82f6" },
+                    { label: "Tax Owed", value: `${(taxReturn.tax_owed || 0).toFixed(2)}`, icon: "⚠️", color: "#f59e0b" },
+                    { label: "Withholdings", value: `${(taxReturn.withholdings || 0).toFixed(2)}`, icon: "🛡️", color: "#8b5cf6" }
                   ].map((item, i) => (
-                    <div key={i} className="text-center p-3 bg-white/5 border border-white/10 rounded-xl">
-                      <span className={`text-xl mx-auto mb-1 block ${item.color}`}>{item.icon}</span>
-                      <p className="text-xs text-gray-400 font-medium">{item.label}</p>
-                      <p className="text-sm font-bold text-white">{item.value}</p>
+                    <div key={i} style={{
+                      textAlign: 'center',
+                      padding: '12px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: '12px'
+                    }}>
+                      <span style={{ fontSize: '20px', display: 'block', marginBottom: '4px', color: item.color }}>
+                        {item.icon}
+                      </span>
+                      <p style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '500', marginBottom: '4px' }}>{item.label}</p>
+                      <p style={{ fontSize: '14px', fontWeight: 'bold', color: 'white' }}>{item.value}</p>
                     </div>
                   ))}
                 </div>
                 
-                <div className="mb-6 p-4 rounded-2xl border-2 border-dashed border-white/20 bg-white/5">
+                <div style={{
+                  marginBottom: '24px',
+                  padding: '16px',
+                  borderRadius: '16px',
+                  border: '2px dashed rgba(255, 255, 255, 0.2)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  textAlign: 'center'
+                }}>
                   {(taxReturn.refund_amount || 0) > 0 ? (
-                    <div className="text-center">
-                      <span className="text-4xl text-green-400 block mb-2">💰</span>
-                      <p className="text-green-400 font-bold text-lg">
+                    <div>
+                      <span style={{ fontSize: '32px', color: '#10b981', display: 'block', marginBottom: '8px' }}>💰</span>
+                      <p style={{ color: '#10b981', fontWeight: 'bold', fontSize: '18px' }}>
                         Refund: ${(taxReturn.refund_amount || 0).toFixed(2)}
                       </p>
                     </div>
                   ) : (
-                    <div className="text-center">
-                      <span className="text-4xl text-red-400 block mb-2">⚠️</span>
-                      <p className="text-red-400 font-bold text-lg">
+                    <div>
+                      <span style={{ fontSize: '32px', color: '#ef4444', display: 'block', marginBottom: '8px' }}>⚠️</span>
+                      <p style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '18px' }}>
                         Amount Owed: ${(taxReturn.amount_owed || 0).toFixed(2)}
                       </p>
                     </div>
                   )}
                 </div>
                 
-                <div className="flex gap-3">
+                <div style={{ display: 'flex', gap: '12px' }}>
                   <button 
                     onClick={() => addDebugInfo(`👁️ Viewing tax return ${taxReturn.tax_year}`)}
-                    className="flex-1 px-4 py-2 bg-gray-500/20 border border-gray-500/30 text-gray-300 text-sm rounded-xl hover:bg-gray-500/30 transition-all duration-200 font-medium flex items-center justify-center gap-1"
+                    style={{
+                      flex: 1,
+                      padding: '12px 16px',
+                      background: 'rgba(107, 114, 128, 0.2)',
+                      border: '1px solid rgba(107, 114, 128, 0.3)',
+                      color: '#d1d5db',
+                      fontSize: '14px',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
                   >
                     <span>👁️</span>
                     View
@@ -674,7 +971,21 @@ function Dashboard() {
                   {taxReturn.status === 'draft' && (
                     <button 
                       onClick={() => addDebugInfo(`✏️ Editing tax return ${taxReturn.tax_year}`)}
-                      className="flex-1 px-4 py-2 bg-blue-500/20 border border-blue-500/30 text-blue-300 text-sm rounded-xl hover:bg-blue-500/30 transition-all duration-200 font-medium flex items-center justify-center gap-1"
+                      style={{
+                        flex: 1,
+                        padding: '12px 16px',
+                        background: 'rgba(59, 130, 246, 0.2)',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        color: '#93c5fd',
+                        fontSize: '14px',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px'
+                      }}
                     >
                       <span>✏️</span>
                       Edit
@@ -682,7 +993,16 @@ function Dashboard() {
                   )}
                   <button 
                     onClick={() => addDebugInfo(`📥 Downloading tax return ${taxReturn.tax_year}`)}
-                    className="px-4 py-2 bg-green-500/20 border border-green-500/30 text-green-300 text-sm rounded-xl hover:bg-green-500/30 transition-all duration-200 font-medium"
+                    style={{
+                      padding: '12px 16px',
+                      background: 'rgba(16, 185, 129, 0.2)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      color: '#6ee7b7',
+                      fontSize: '14px',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontWeight: '500'
+                    }}
                   >
                     <span>📥</span>
                   </button>
@@ -692,41 +1012,53 @@ function Dashboard() {
           </div>
           
           {/* Info Panel */}
-          <div className="mt-8 p-6 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-blue-500/20 rounded-2xl">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center flex-shrink-0">
-                <span className="text-2xl">✨</span>
+          <div style={{
+            marginTop: '32px',
+            padding: '24px',
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.1))',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            borderRadius: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px',
+                flexShrink: 0
+              }}>
+                ✨
               </div>
               <div>
-                <h4 className="text-lg font-bold text-white mb-3">How Smart Filing Works</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <ul className="space-y-2 text-sm text-gray-300">
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-400">✅</span>
-                      Upload W-2, 1099, 1098, and other tax documents
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-400">✅</span>
-                      AI extracts data automatically when possible
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-400">✅</span>
-                      Manual entry option for maximum flexibility
-                    </li>
+                <h4 style={{ fontSize: '18px', fontWeight: 'bold', color: 'white', marginBottom: '12px' }}>How Smart Filing Works</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {[
+                      'Upload W-2, 1099, 1098, and other tax documents',
+                      'AI extracts data automatically when possible',
+                      'Manual entry option for maximum flexibility'
+                    ].map((item, index) => (
+                      <li key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '14px', color: '#d1d5db' }}>
+                        <span style={{ color: '#10b981' }}>✅</span>
+                        {item}
+                      </li>
+                    ))}
                   </ul>
-                  <ul className="space-y-2 text-sm text-gray-300">
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-400">✅</span>
-                      Automatic tax return creation and updates
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-400">✅</span>
-                      Review and edit before final submission
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-green-400">✅</span>
-                      Professional PDF generation and download
-                    </li>
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {[
+                      'Automatic tax return creation and updates',
+                      'Review and edit before final submission',
+                      'Professional PDF generation and download'
+                    ].map((item, index) => (
+                      <li key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '14px', color: '#d1d5db' }}>
+                        <span style={{ color: '#10b981' }}>✅</span>
+                        {item}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               </div>
@@ -735,34 +1067,30 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Custom Animations */}
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
-        }
-        
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
-        }
-        
-        /* Glassmorphism enhancement */
-        .backdrop-blur-md {
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-        }
-        
-        /* Smooth gradient animations */
-        @keyframes gradient-shift {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        
-        .animate-gradient {
-          background-size: 200% 200%;
-          animation: gradient-shift 4s ease infinite;
-        }
-      `}</style>
+      {/* Add CSS animations */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+          }
+          
+          [style*="cursor: pointer"]:hover {
+            transform: translateY(-2px);
+          }
+          
+          input:focus, select:focus {
+            outline: none;
+            border-color: rgba(139, 92, 246, 0.5) !important;
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+          }
+        `
+      }} />
     </div>
   );
 }
