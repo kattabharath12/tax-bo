@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import TaxForm from './TaxForm';
 import { apiService } from '../services/api';
+import jsPDF from 'jspdf';
 
 function Dashboard() {
   const { user, logout } = useAuth();
@@ -52,36 +53,155 @@ function Dashboard() {
     }
   };
 
-  const downloadTaxReturn = async (taxReturnId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`https://tax-box-production.up.railway.app/tax-returns/${taxReturnId}/export/json`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+  const downloadTaxReturn = async (taxReturn) => {
+  try {
+    // Create new PDF document
+    const doc = new jsPDF();
+    
+    // Set up document properties
+    doc.setProperties({
+      title: `Tax Return ${taxReturn.tax_year}`,
+      creator: 'TaxBox.AI',
+      author: user?.full_name || 'User'
+    });
+
+    // Add a border to the entire document
+    doc.setLineWidth(1);
+    doc.rect(10, 10, 190, 277);
+    
+    // Header with background
+    doc.setFillColor(66, 139, 202); // Blue background
+    doc.rect(15, 15, 180, 25, 'F');
+    
+    doc.setTextColor(255, 255, 255); // White text
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.text('TAX RETURN SUMMARY', 105, 32, { align: 'center' });
+    
+    // Reset text color
+    doc.setTextColor(0, 0, 0);
+    
+    // Main content area
+    let y = 55;
+    
+    // Tax year prominently displayed
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Tax Year ${taxReturn.tax_year}`, 105, y, { align: 'center' });
+    
+    y += 20;
+    
+    // Helper function to add table rows
+    const addTableRow = (label, value, yPos) => {
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'normal');
+      doc.text(label, 20, yPos);
+      doc.setFont(undefined, 'bold');
+      doc.text(value, 120, yPos);
+      doc.setFont(undefined, 'normal');
       
-      if (!response.ok) {
-        throw new Error('Download failed');
-      }
+      // Add a light line under each row
+      doc.setLineWidth(0.1);
+      doc.line(20, yPos + 2, 185, yPos + 2);
       
-      const data = await response.json();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `tax_return_${taxReturnId}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      alert('Tax return downloaded successfully!');
-    } catch (error) {
-      console.error('Error downloading tax return:', error);
-      alert('Failed to download tax return');
+      return yPos + 12;
+    };
+    
+    // Personal Information Section
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Personal Information', 20, y);
+    y += 15;
+    
+    y = addTableRow('Taxpayer:', user?.full_name || 'N/A', y);
+    
+    if (taxReturn.filing_status) {
+      const filingStatusDisplay = taxReturn.filing_status
+        .replace('_', ' ')
+        .replace(/\b\w/g, l => l.toUpperCase());
+      y = addTableRow('Filing Status:', filingStatusDisplay, y);
     }
-  };
+    
+    if (taxReturn.spouse_name) {
+      y = addTableRow('Spouse Name:', taxReturn.spouse_name, y);
+    }
+    
+    if (taxReturn.dependents && taxReturn.dependents.length > 0) {
+      y = addTableRow('Number of Dependents:', taxReturn.dependents.length.toString(), y);
+    }
+    
+    // Income Information
+    y += 10;
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Income Information', 20, y);
+    y += 15;
+    
+    y = addTableRow('Total Income:', `$${(taxReturn.income || 0).toLocaleString()}`, y);
+    y = addTableRow('Deductions:', `$${(taxReturn.deductions || 0).toLocaleString()}`, y);
+    
+    const taxableIncome = Math.max(0, (taxReturn.income || 0) - (taxReturn.deductions || 0));
+    y = addTableRow('Taxable Income:', `$${taxableIncome.toLocaleString()}`, y);
+    
+    // Tax Calculation
+    y += 10;
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('Tax Calculation', 20, y);
+    y += 15;
+    
+    y = addTableRow('Tax Owed:', `$${(taxReturn.tax_owed || 0).toFixed(2)}`, y);
+    y = addTableRow('Tax Withholdings:', `$${(taxReturn.withholdings || 0).toFixed(2)}`, y);
+    
+    // Final Result Box
+    y += 20;
+    const isRefund = (taxReturn.refund_amount || 0) > 0;
+    
+    // Create a colored box for the result
+    doc.setFillColor(isRefund ? 220, 252, 231 : 254, 226, 226); // Green or red background
+    doc.rect(20, y - 5, 165, 25, 'F');
+    
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(isRefund ? 21, 128, 61 : 185, 28, 28); // Green or red text
+    
+    if (isRefund) {
+      doc.text('REFUND AMOUNT:', 25, y + 8);
+      doc.text(`$${(taxReturn.refund_amount || 0).toFixed(2)}`, 160, y + 8, { align: 'right' });
+    } else {
+      doc.text('AMOUNT OWED:', 25, y + 8);
+      doc.text(`$${(taxReturn.amount_owed || 0).toFixed(2)}`, 160, y + 8, { align: 'right' });
+    }
+    
+    // Reset colors
+    doc.setTextColor(0, 0, 0);
+    doc.setFillColor(255, 255, 255);
+    
+    // Footer information
+    y += 50;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    y = addTableRow('Status:', (taxReturn.status || 'draft').toUpperCase(), y);
+    y = addTableRow('Created:', new Date(taxReturn.created_at).toLocaleDateString(), y);
+    y = addTableRow('Generated:', new Date().toLocaleDateString(), y);
+    y = addTableRow('Document ID:', taxReturn.id.toString(), y);
+    
+    // Disclaimer
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'italic');
+    doc.text('This document is generated by TaxBox.AI and is for informational purposes only.', 105, pageHeight - 25, { align: 'center' });
+    doc.text('Please consult with a tax professional for official tax filing.', 105, pageHeight - 18, { align: 'center' });
+    
+    // Save the PDF
+    doc.save(`tax_return_${taxReturn.tax_year}_${taxReturn.id}.pdf`);
+    
+    alert('Tax return PDF downloaded successfully!');
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    alert('Failed to generate PDF. Please try again.');
+  }
+};
 
   const navigateToTaxReturns = () => {
     window.location.href = '/tax-returns';
