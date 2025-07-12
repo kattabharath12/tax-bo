@@ -33,6 +33,9 @@ function Dashboard() {
   const [currentDocument, setCurrentDocument] = useState(null);
   const [processingDocument, setProcessingDocument] = useState(false);
   const [autoFilingEnabled, setAutoFilingEnabled] = useState(true);
+  const [showDetailView, setShowDetailView] = useState(false);
+  const [detailViewData, setDetailViewData] = useState(null);
+  const [detailViewType, setDetailViewType] = useState(''); // 'document', 'taxReturn', 'allReturns'
   const [manualTaxData, setManualTaxData] = useState({
     income: '',
     withholdings: '',
@@ -1022,7 +1025,9 @@ function Dashboard() {
                 <div style={{ display: 'flex', gap: '1rem' }}>
                   <button 
                     onClick={() => {
-                      alert(`Viewing document: ${document.filename}\n\nFile Info:\n• Type: ${document.file_type}\n• Size: ${(document.file_size / 1024).toFixed(1)} KB\n• Uploaded: ${new Date(document.uploaded_at).toLocaleDateString()}\n• OCR Status: ${document.ocr_text ? 'Text extracted ✅' : 'No text extracted ⚠️'}`);
+                      setDetailViewData(document);
+                      setDetailViewType('document');
+                      setShowDetailView(true);
                     }}
                     style={{
                       flex: 1,
@@ -1491,6 +1496,256 @@ function Dashboard() {
             ))}
           </div>
         </div>
+
+        {/* Detail View Modal */}
+        {showDetailView && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '2rem'
+          }}>
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 27, 75, 0.95))',
+              backdropFilter: 'blur(20px)',
+              border: '2px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '2rem',
+              padding: '2rem',
+              maxWidth: '800px',
+              maxHeight: '80vh',
+              overflow: 'auto',
+              width: '100%'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>
+                  {detailViewType === 'document' && '📄 Document Details'}
+                  {detailViewType === 'taxReturn' && '📊 Tax Return Details'}
+                  {detailViewType === 'allReturns' && '📋 All Tax Returns'}
+                  {detailViewType === 'message' && '💡 Information'}
+                </h2>
+                <button
+                  onClick={() => setShowDetailView(false)}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#fca5a5',
+                    borderRadius: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    cursor: 'pointer',
+                    fontSize: '1.5rem'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Document Details */}
+              {detailViewType === 'document' && detailViewData && (
+                <div style={{ color: 'white' }}>
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    borderRadius: '1rem',
+                    padding: '1.5rem',
+                    marginBottom: '1.5rem'
+                  }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#06b6d4' }}>
+                      {detailViewData.filename}
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>File Type</p>
+                        <p style={{ fontWeight: '600' }}>{detailViewData.file_type}</p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>File Size</p>
+                        <p style={{ fontWeight: '600' }}>{(detailViewData.file_size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Uploaded</p>
+                        <p style={{ fontWeight: '600' }}>{new Date(detailViewData.uploaded_at).toLocaleDateString()}</p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>OCR Status</p>
+                        <p style={{ fontWeight: '600', color: detailViewData.ocr_text ? '#10b981' : '#f59e0b' }}>
+                          {detailViewData.ocr_text ? '✅ Text Extracted' : '⚠️ No Text Extracted'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {detailViewData.ocr_text && (
+                    <div style={{
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      borderRadius: '1rem',
+                      padding: '1rem'
+                    }}>
+                      <p style={{ color: '#10b981', fontWeight: '600', marginBottom: '0.5rem' }}>Extracted Text Preview:</p>
+                      <p style={{ color: '#d1d5db', fontSize: '0.875rem' }}>{detailViewData.ocr_text}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tax Return Details */}
+              {detailViewType === 'taxReturn' && detailViewData && (
+                <div style={{ color: 'white' }}>
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    borderRadius: '1rem',
+                    padding: '1.5rem',
+                    marginBottom: '1.5rem'
+                  }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#8b5cf6' }}>
+                      Tax Year {detailViewData.tax_year}
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Income</p>
+                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#10b981' }}>${(detailViewData.income || 0).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Deductions</p>
+                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#3b82f6' }}>${(detailViewData.deductions || 0).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Tax Owed</p>
+                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#f59e0b' }}>${(detailViewData.tax_owed || 0).toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Withholdings</p>
+                        <p style={{ fontWeight: 'bold', fontSize: '1.125rem', color: '#8b5cf6' }}>${(detailViewData.withholdings || 0).toFixed(2)}</p>
+                      </div>
+                    </div>
+                    
+                    <div style={{
+                      background: (detailViewData.refund_amount || 0) > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                      border: (detailViewData.refund_amount || 0) > 0 ? '2px solid rgba(16, 185, 129, 0.3)' : '2px solid rgba(239, 68, 68, 0.3)',
+                      borderRadius: '1rem',
+                      padding: '1rem',
+                      textAlign: 'center',
+                      marginBottom: '1rem'
+                    }}>
+                      <p style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
+                        {(detailViewData.refund_amount || 0) > 0 ? '💰' : '⚠️'}
+                      </p>
+                      <p style={{ 
+                        fontWeight: 'bold', 
+                        fontSize: '1.25rem',
+                        color: (detailViewData.refund_amount || 0) > 0 ? '#10b981' : '#ef4444'
+                      }}>
+                        {(detailViewData.refund_amount || 0) > 0 
+                          ? `Refund: ${(detailViewData.refund_amount || 0).toFixed(2)}`
+                          : `Amount Owed: ${(detailViewData.amount_owed || 0).toFixed(2)}`
+                        }
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Status</p>
+                        <p style={{ 
+                          fontWeight: 'bold',
+                          color: detailViewData.status === 'draft' ? '#fbbf24' : '#10b981'
+                        }}>
+                          {detailViewData.status.toUpperCase()}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>AI Generated</p>
+                        <p style={{ fontWeight: 'bold', color: detailViewData.auto_generated ? '#8b5cf6' : '#9ca3af' }}>
+                          {detailViewData.auto_generated ? '🤖 Yes' : '👤 Manual'}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Source</p>
+                        <p style={{ fontWeight: '600', fontSize: '0.875rem' }}>{detailViewData.source_document}</p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Created</p>
+                        <p style={{ fontWeight: '600', fontSize: '0.875rem' }}>{new Date(detailViewData.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* All Returns View */}
+              {detailViewType === 'allReturns' && detailViewData && (
+                <div style={{ color: 'white' }}>
+                  <p style={{ color: '#9ca3af', marginBottom: '1.5rem' }}>
+                    You have {detailViewData.length} tax return{detailViewData.length !== 1 ? 's' : ''}
+                  </p>
+                  <div style={{ display: 'grid', gap: '1rem' }}>
+                    {detailViewData.map((taxReturn) => (
+                      <div key={taxReturn.id} style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        borderRadius: '1rem',
+                        padding: '1rem',
+                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <h4 style={{ fontWeight: 'bold', fontSize: '1.125rem' }}>Tax Year {taxReturn.tax_year}</h4>
+                          <span style={{
+                            padding: '0.25rem 0.75rem',
+                            borderRadius: '1rem',
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            background: taxReturn.status === 'draft' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                            color: taxReturn.status === 'draft' ? '#fbbf24' : '#10b981'
+                          }}>
+                            {taxReturn.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem', fontSize: '0.875rem' }}>
+                          <div>
+                            <span style={{ color: '#9ca3af' }}>Income: </span>
+                            <span style={{ fontWeight: '600', color: '#10b981' }}>${(taxReturn.income || 0).toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span style={{ color: '#9ca3af' }}>Result: </span>
+                            <span style={{ 
+                              fontWeight: '600',
+                              color: (taxReturn.refund_amount || 0) > 0 ? '#10b981' : '#ef4444'
+                            }}>
+                              {(taxReturn.refund_amount || 0) > 0 
+                                ? `+${taxReturn.refund_amount.toFixed(2)}`
+                                : `-${(taxReturn.amount_owed || 0).toFixed(2)}`
+                              }
+                            </span>
+                          </div>
+                          {taxReturn.auto_generated && (
+                            <div>
+                              <span style={{ color: '#8b5cf6' }}>🤖 AI Generated</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Message View */}
+              {detailViewType === 'message' && detailViewData && (
+                <div style={{
+                  textAlign: 'center',
+                  color: 'white',
+                  padding: '2rem'
+                }}>
+                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
+                  <p style={{ fontSize: '1.125rem', color: '#e2e8f0' }}>{detailViewData.message}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div style={{
