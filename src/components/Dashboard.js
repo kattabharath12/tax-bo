@@ -6,7 +6,7 @@ function Dashboard() {
   // Logout function that navigates back to login
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
-      // Clear any stored authentication data
+      // Clear authentication data
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       sessionStorage.clear();
@@ -46,53 +46,67 @@ function Dashboard() {
     return isNaN(num) ? 0 : num;
   };
 
-  const handleUploadDocument = (event) => {
+  const handleUploadDocument = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
     setProcessingDocument(true);
     
-    setTimeout(() => {
-      const newDoc = {
-        id: documents.length + 1,
-        filename: file.name,
-        file_type: file.type,
-        file_size: file.size,
-        uploaded_at: new Date().toISOString(),
-        ocr_text: Math.random() > 0.5 ? 'Sample OCR text' : null,
-        file_url: '#'
-      };
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', file);
       
-      setDocuments(prev => [newDoc, ...prev]);
+      // Upload file to backend
+      const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('File upload failed');
+      }
+
+      const uploadedDoc = await response.json();
+      
+      // Add to local state
+      setDocuments(prev => [uploadedDoc, ...prev]);
       setProcessingDocument(false);
       setShowUploadForm(false);
       
       // AI Processing Logic
       if (autoFilingEnabled) {
-        if (newDoc.ocr_text) {
+        if (uploadedDoc.ocr_text) {
           setTimeout(() => {
-            const extractedData = simulateAIExtraction(newDoc);
+            const extractedData = simulateAIExtraction(uploadedDoc);
             
             if (extractedData) {
-              const confirmMessage = 'AI successfully extracted tax data from ' + newDoc.filename + '!\n\n' +
+              const confirmMessage = 'AI successfully extracted tax data from ' + uploadedDoc.filename + '!\n\n' +
                 'Detected:\n• Income: ' + extractedData.income.toLocaleString() + '\n• Withholdings: ' + 
                 extractedData.withholdings.toLocaleString() + '\n• Tax Year: ' + extractedData.tax_year + 
                 '\n\nWould you like to create a tax return with this data?';
               
               if (window.confirm(confirmMessage)) {
-                createTaxReturnFromData(extractedData, newDoc);
+                createTaxReturnFromData(extractedData, uploadedDoc);
               }
             }
           }, 1500);
         } else {
           setTimeout(() => {
             if (window.confirm('No OCR text detected. Would you like to manually enter tax information from this document?')) {
-              setCurrentDocument(newDoc);
+              setCurrentDocument(uploadedDoc);
               setShowManualEntry(true);
             }
           }, 1000);
         }
       }
-    }, 2000);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload document: ' + error.message);
+      setProcessingDocument(false);
+    }
   };
 
   const simulateAIExtraction = (document) => {
@@ -125,118 +139,150 @@ function Dashboard() {
     }
   };
 
-  const createTaxReturnFromData = (extractedData, sourceDocument) => {
-    const existingReturn = taxReturns.find(tr => tr.tax_year === extractedData.tax_year);
+  const createTaxReturnFromData = async (extractedData, sourceDocument) => {
+    try {
+      const existingReturn = taxReturns.find(tr => tr.tax_year === extractedData.tax_year);
+      
+      if (existingReturn) {
+        // Update existing return
+        const updatedReturn = {
+          ...existingReturn,
+          income: safeToNumber(existingReturn.income) + safeToNumber(extractedData.income),
+          withholdings: safeToNumber(existingReturn.withholdings) + safeToNumber(extractedData.withholdings),
+          deductions: Math.max(safeToNumber(existingReturn.deductions), safeToNumber(extractedData.deductions)),
+          source_document: existingReturn.source_document + ', ' + sourceDocument.filename
+        };
+        
+        // Save to backend
+        const savedReturn = await updateTaxReturn(existingReturn.id, updatedReturn);
+        
+        // Update local state
+        setTaxReturns(prev => prev.map(tr => 
+          tr.id === existingReturn.id ? savedReturn : tr
+        ));
+        
+        const alertMessage = 'Tax return for ' + extractedData.tax_year + ' updated!\n\n' +
+          'Added:\n• Income: +' + extractedData.income.toLocaleString() + 
+          '\n• Withholdings: +' + extractedData.withholdings.toLocaleString() + 
+          '\n\nTotal Income: ' + updatedReturn.income.toLocaleString();
+        
+        alert(alertMessage);
+      } else {
+        // Create new return
+        const income = safeToNumber(extractedData.income);
+        const withholdings = safeToNumber(extractedData.withholdings);
+        const deductions = safeToNumber(extractedData.deductions);
+        
+        const newReturn = {
+          tax_year: extractedData.tax_year,
+          income: income,
+          withholdings: withholdings,
+          deductions: deductions,
+          tax_owed: Math.max(0, (income - deductions) * 0.22 - withholdings),
+          refund_amount: 0,
+          amount_owed: 0,
+          status: 'draft',
+          auto_generated: true,
+          source_document: sourceDocument.filename,
+          created_at: new Date().toISOString()
+        };
+        
+        // Calculate refund vs owed
+        const taxOwed = (newReturn.income - newReturn.deductions) * 0.22;
+        if (newReturn.withholdings > taxOwed) {
+          newReturn.refund_amount = newReturn.withholdings - taxOwed;
+          newReturn.amount_owed = 0;
+        } else {
+          newReturn.refund_amount = 0;
+          newReturn.amount_owed = taxOwed - newReturn.withholdings;
+        }
+        
+        // Save to backend
+        const savedReturn = await saveTaxReturn(newReturn);
+        
+        // Update local state
+        setTaxReturns(prev => [savedReturn, ...prev]);
+        
+        const result = savedReturn.refund_amount > 0 
+          ? 'Refund: ' + savedReturn.refund_amount.toFixed(2)
+          : 'Owed: ' + savedReturn.amount_owed.toFixed(2);
+        
+        const alertMessage = 'New tax return created for ' + extractedData.tax_year + '!\n\n' +
+          'Summary:\n• Income: ' + extractedData.income.toLocaleString() + 
+          '\n• Withholdings: ' + extractedData.withholdings.toLocaleString() + 
+          '\n• ' + result;
+        
+        alert(alertMessage);
+      }
+    } catch (error) {
+      console.error('Error creating/updating tax return:', error);
+      alert('Failed to save tax return: ' + error.message);
+    }
+  };
+
+  const handleManualTaxEntry = async (e) => {
+    e.preventDefault();
     
-    if (existingReturn) {
-      const updatedReturn = {
-        ...existingReturn,
-        income: safeToNumber(existingReturn.income) + safeToNumber(extractedData.income),
-        withholdings: safeToNumber(existingReturn.withholdings) + safeToNumber(extractedData.withholdings),
-        deductions: Math.max(safeToNumber(existingReturn.deductions), safeToNumber(extractedData.deductions)),
-        source_document: existingReturn.source_document + ', ' + sourceDocument.filename
-      };
-      
-      setTaxReturns(prev => prev.map(tr => 
-        tr.id === existingReturn.id ? updatedReturn : tr
-      ));
-      
-      const alertMessage = 'Tax return for ' + extractedData.tax_year + ' updated!\n\n' +
-        'Added:\n• Income: +' + extractedData.income.toLocaleString() + 
-        '\n• Withholdings: +' + extractedData.withholdings.toLocaleString() + 
-        '\n\nTotal Income: ' + updatedReturn.income.toLocaleString();
-      
-      alert(alertMessage);
-    } else {
-      const income = safeToNumber(extractedData.income);
-      const withholdings = safeToNumber(extractedData.withholdings);
-      const deductions = safeToNumber(extractedData.deductions);
+    try {
+      const income = safeToNumber(manualTaxData.income);
+      const withholdings = safeToNumber(manualTaxData.withholdings);
+      const deductions = safeToNumber(manualTaxData.deductions) || 12550;
       
       const newReturn = {
-        id: taxReturns.length + 1,
-        tax_year: extractedData.tax_year,
+        tax_year: parseInt(manualTaxData.tax_year),
         income: income,
         withholdings: withholdings,
         deductions: deductions,
-        tax_owed: Math.max(0, (income - deductions) * 0.22 - withholdings),
+        tax_owed: 0,
         refund_amount: 0,
         amount_owed: 0,
         status: 'draft',
-        auto_generated: true,
-        source_document: sourceDocument.filename,
+        auto_generated: false,
+        source_document: currentDocument?.filename || 'manual_entry',
         created_at: new Date().toISOString()
       };
       
-      const taxOwed = (newReturn.income - newReturn.deductions) * 0.22;
-      if (newReturn.withholdings > taxOwed) {
-        newReturn.refund_amount = newReturn.withholdings - taxOwed;
+      const taxOwed = (income - deductions) * 0.22;
+      if (withholdings > taxOwed) {
+        newReturn.refund_amount = withholdings - taxOwed;
         newReturn.amount_owed = 0;
       } else {
         newReturn.refund_amount = 0;
-        newReturn.amount_owed = taxOwed - newReturn.withholdings;
+        newReturn.amount_owed = taxOwed - withholdings;
       }
       
-      setTaxReturns(prev => [newReturn, ...prev]);
+      // Save to backend
+      const savedReturn = await saveTaxReturn(newReturn);
       
-      const result = newReturn.refund_amount > 0 
-        ? 'Refund: ' + newReturn.refund_amount.toFixed(2)
-        : 'Owed: ' + newReturn.amount_owed.toFixed(2);
-      
-      const alertMessage = 'New tax return created for ' + extractedData.tax_year + '!\n\n' +
-        'Summary:\n• Income: ' + extractedData.income.toLocaleString() + 
-        '\n• Withholdings: ' + extractedData.withholdings.toLocaleString() + 
-        '\n• ' + result;
-      
-      alert(alertMessage);
+      // Update local state
+      setTaxReturns(prev => [savedReturn, ...prev]);
+      setShowManualEntry(false);
+      setCurrentDocument(null);
+      setManualTaxData({
+        income: '',
+        withholdings: '',
+        deductions: '',
+        tax_year: new Date().getFullYear() - 1,
+        document_type: 'w2'
+      });
+    } catch (error) {
+      console.error('Error saving manual tax return:', error);
+      alert('Failed to save tax return: ' + error.message);
     }
   };
 
-  const handleManualTaxEntry = (e) => {
-    e.preventDefault();
-    
-    const income = safeToNumber(manualTaxData.income);
-    const withholdings = safeToNumber(manualTaxData.withholdings);
-    const deductions = safeToNumber(manualTaxData.deductions) || 12550;
-    
-    const newReturn = {
-      id: taxReturns.length + 1,
-      tax_year: parseInt(manualTaxData.tax_year),
-      income: income,
-      withholdings: withholdings,
-      deductions: deductions,
-      tax_owed: 0,
-      refund_amount: 0,
-      amount_owed: 0,
-      status: 'draft',
-      auto_generated: false,
-      source_document: currentDocument?.filename || 'manual_entry',
-      created_at: new Date().toISOString()
-    };
-    
-    const taxOwed = (income - deductions) * 0.22;
-    if (withholdings > taxOwed) {
-      newReturn.refund_amount = withholdings - taxOwed;
-      newReturn.amount_owed = 0;
-    } else {
-      newReturn.refund_amount = 0;
-      newReturn.amount_owed = taxOwed - withholdings;
-    }
-    
-    setTaxReturns(prev => [newReturn, ...prev]);
-    setShowManualEntry(false);
-    setCurrentDocument(null);
-    setManualTaxData({
-      income: '',
-      withholdings: '',
-      deductions: '',
-      tax_year: new Date().getFullYear() - 1,
-      document_type: 'w2'
-    });
-  };
-
-  const handleDeleteDocument = (documentId) => {
+  const handleDeleteDocument = async (documentId) => {
     if (window.confirm('Are you sure you want to delete this document?')) {
-      setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+      try {
+        // Delete from backend
+        await deleteDocument(documentId);
+        
+        // Update local state
+        setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+      } catch (error) {
+        console.error('Error deleting document:', error);
+        alert('Failed to delete document: ' + error.message);
+      }
     }
   };
 
@@ -263,6 +309,69 @@ function Dashboard() {
       color: 'white',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
     }}>
+      {/* Loading State */}
+      {loading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(6, 182, 212, 0.9))',
+            padding: '2rem',
+            borderRadius: '1rem',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '3rem',
+              height: '3rem',
+              border: '4px solid rgba(255, 255, 255, 0.3)',
+              borderTop: '4px solid white',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 1rem'
+            }}></div>
+            <p style={{ fontSize: '1.125rem', fontWeight: '600' }}>Loading your tax data...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '2px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '1rem',
+          padding: '1rem',
+          margin: '1rem',
+          color: '#fca5a5',
+          textAlign: 'center'
+        }}>
+          <p style={{ fontWeight: '600' }}>⚠️ {error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{
+              background: 'rgba(239, 68, 68, 0.2)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#fca5a5',
+              borderRadius: '0.5rem',
+              padding: '0.5rem 1rem',
+              marginTop: '0.5rem',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 1rem' }}>
         
         {/* Header */}
