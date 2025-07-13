@@ -1,7 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+// API Configuration
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api';
+
+// Helper function to get auth token
+const getAuthToken = () => {
+  return localStorage.getItem('token') || '';
+};
+
+// API Functions
+const updateTaxReturn = async (id, data) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/tax-returns/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getAuthToken()}`
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to update tax return');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Update tax return error:', error);
+    throw error;
+  }
+};
+
+const saveTaxReturn = async (data) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/tax-returns`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${getAuthToken()}`
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to save tax return');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Save tax return error:', error);
+    throw error;
+  }
+};
+
+const deleteDocument = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/documents/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${getAuthToken()}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to delete document');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Delete document error:', error);
+    throw error;
+  }
+};
 
 function Dashboard() {
   const [user] = useState({ full_name: 'Your Name' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   
   // Logout function that navigates back to login
   const handleLogout = () => {
@@ -34,6 +109,32 @@ function Dashboard() {
     document_type: 'w2'
   });
 
+  // Load initial data
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Simulate loading initial data
+        // Replace with actual API calls when backend is ready
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Mock data for development
+        setTaxReturns([]);
+        setDocuments([]);
+        
+      } catch (err) {
+        setError('Failed to load data. Please try again.');
+        console.error('Load data error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, []);
+
   // Helper function to safely convert to number and format
   const safeToFixed = (value, decimals = 2) => {
     const num = parseFloat(value);
@@ -50,6 +151,7 @@ function Dashboard() {
     const file = event.target.files[0];
     if (!file) return;
     setProcessingDocument(true);
+    setError(null);
     
     try {
       // Create FormData for file upload
@@ -104,7 +206,7 @@ function Dashboard() {
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Failed to upload document: ' + error.message);
+      setError('Failed to upload document: ' + error.message);
       setProcessingDocument(false);
     }
   };
@@ -216,12 +318,13 @@ function Dashboard() {
       }
     } catch (error) {
       console.error('Error creating/updating tax return:', error);
-      alert('Failed to save tax return: ' + error.message);
+      setError('Failed to save tax return: ' + error.message);
     }
   };
 
   const handleManualTaxEntry = async (e) => {
     e.preventDefault();
+    setError(null);
     
     try {
       const income = safeToNumber(manualTaxData.income);
@@ -267,7 +370,7 @@ function Dashboard() {
       });
     } catch (error) {
       console.error('Error saving manual tax return:', error);
-      alert('Failed to save tax return: ' + error.message);
+      setError('Failed to save tax return: ' + error.message);
     }
   };
 
@@ -281,7 +384,7 @@ function Dashboard() {
         setDocuments(prev => prev.filter(doc => doc.id !== documentId));
       } catch (error) {
         console.error('Error deleting document:', error);
-        alert('Failed to delete document: ' + error.message);
+        setError('Failed to delete document: ' + error.message);
       }
     }
   };
@@ -356,7 +459,7 @@ function Dashboard() {
         }}>
           <p style={{ fontWeight: '600' }}>⚠️ {error}</p>
           <button 
-            onClick={() => window.location.reload()} 
+            onClick={() => setError(null)} 
             style={{
               background: 'rgba(239, 68, 68, 0.2)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -367,7 +470,7 @@ function Dashboard() {
               cursor: 'pointer'
             }}
           >
-            Retry
+            Dismiss
           </button>
         </div>
       )}
@@ -1076,158 +1179,170 @@ function Dashboard() {
             </button>
           </div>
           
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
-            gap: '2rem'
-          }}>
-            {documents.map((document) => (
-              <div 
-                key={document.id} 
-                style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '2px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '1.5rem',
-                  padding: '2rem',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.borderColor = 'rgba(139, 92, 246, 0.5)';
-                  e.target.style.transform = 'translateY(-5px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                  e.target.style.transform = 'translateY(0)';
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                  <div style={{
-                    width: '4rem',
-                    height: '4rem',
-                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-                    borderRadius: '1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '2rem'
-                  }}>
-                    📄
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{
-                      fontSize: '1.25rem',
-                      fontWeight: 'bold',
-                      color: 'white',
-                      marginBottom: '0.5rem',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
+          {documents.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem',
+              color: '#9ca3af'
+            }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
+              <p style={{ fontSize: '1.25rem' }}>No documents uploaded yet</p>
+              <p style={{ fontSize: '1rem' }}>Upload your tax documents to get started</p>
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+              gap: '2rem'
+            }}>
+              {documents.map((document) => (
+                <div 
+                  key={document.id} 
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '2px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '1.5rem',
+                    padding: '2rem',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.borderColor = 'rgba(139, 92, 246, 0.5)';
+                    e.target.style.transform = 'translateY(-5px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    e.target.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div style={{
+                      width: '4rem',
+                      height: '4rem',
+                      background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                      borderRadius: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '2rem'
                     }}>
-                      {document.filename}
-                    </h3>
-                    <p style={{ fontSize: '1rem', color: '#9ca3af' }}>
-                      {document.file_type} • {(document.file_size / 1024).toFixed(1)} KB
-                    </p>
-                  </div>
-                </div>
-                
-                {document.ocr_text ? (
-                  <div style={{
-                    marginBottom: '1.5rem',
-                    padding: '1rem',
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    border: '2px solid rgba(16, 185, 129, 0.3)',
-                    borderRadius: '1rem'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                      <span style={{ color: '#10b981', fontSize: '1.5rem' }}>✅</span>
-                      <p style={{ fontSize: '1rem', fontWeight: '700', color: '#6ee7b7' }}>
-                        AI-Ready Document
+                      📄
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{
+                        fontSize: '1.25rem',
+                        fontWeight: 'bold',
+                        color: 'white',
+                        marginBottom: '0.5rem',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {document.filename}
+                      </h3>
+                      <p style={{ fontSize: '1rem', color: '#9ca3af' }}>
+                        {document.file_type} • {(document.file_size / 1024).toFixed(1)} KB
                       </p>
                     </div>
-                    <p style={{ fontSize: '0.875rem', color: '#10b981' }}>
-                      Text extracted and ready for processing
-                    </p>
                   </div>
-                ) : (
-                  <div style={{
-                    marginBottom: '1.5rem',
-                    padding: '1rem',
-                    background: 'rgba(245, 158, 11, 0.2)',
-                    border: '2px solid rgba(245, 158, 11, 0.3)',
-                    borderRadius: '1rem'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                      <span style={{ color: '#f59e0b', fontSize: '1.5rem' }}>⚠️</span>
-                      <p style={{ fontSize: '1rem', fontWeight: '700', color: '#fbbf24' }}>
-                        Manual Processing Available
-                      </p>
-                    </div>
-                    <p style={{ fontSize: '0.875rem', color: '#f59e0b' }}>
-                      No text extracted - use manual entry option
-                    </p>
-                  </div>
-                )}
-                
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <button 
-                    onClick={() => {
-                      setDetailViewData(document);
-                      setDetailViewType('document');
-                      setShowDetailView(true);
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '0.75rem 1rem',
-                      background: 'rgba(59, 130, 246, 0.2)',
-                      border: '2px solid rgba(59, 130, 246, 0.3)',
-                      color: '#93c5fd',
-                      fontSize: '1rem',
-                      borderRadius: '0.75rem',
-                      cursor: 'pointer',
-                      fontWeight: '600',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    👁️ View
-                  </button>
-                  <button 
-                    onClick={() => handleProcessDocument(document)}
-                    style={{
-                      flex: 1,
-                      padding: '0.75rem 1rem',
+                  
+                  {document.ocr_text ? (
+                    <div style={{
+                      marginBottom: '1.5rem',
+                      padding: '1rem',
                       background: 'rgba(16, 185, 129, 0.2)',
                       border: '2px solid rgba(16, 185, 129, 0.3)',
-                      color: '#6ee7b7',
-                      fontSize: '1rem',
-                      borderRadius: '0.75rem',
-                      cursor: 'pointer',
-                      fontWeight: '600',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    📝 Process
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteDocument(document.id)}
-                    style={{
-                      padding: '0.75rem 1rem',
-                      background: 'rgba(239, 68, 68, 0.2)',
-                      border: '2px solid rgba(239, 68, 68, 0.3)',
-                      color: '#fca5a5',
-                      fontSize: '1rem',
-                      borderRadius: '0.75rem',
-                      cursor: 'pointer',
-                      fontWeight: '600',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    🗑️
-                  </button>
+                      borderRadius: '1rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#10b981', fontSize: '1.5rem' }}>✅</span>
+                        <p style={{ fontSize: '1rem', fontWeight: '700', color: '#6ee7b7' }}>
+                          AI-Ready Document
+                        </p>
+                      </div>
+                      <p style={{ fontSize: '0.875rem', color: '#10b981' }}>
+                        Text extracted and ready for processing
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{
+                      marginBottom: '1.5rem',
+                      padding: '1rem',
+                      background: 'rgba(245, 158, 11, 0.2)',
+                      border: '2px solid rgba(245, 158, 11, 0.3)',
+                      borderRadius: '1rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#f59e0b', fontSize: '1.5rem' }}>⚠️</span>
+                        <p style={{ fontSize: '1rem', fontWeight: '700', color: '#fbbf24' }}>
+                          Manual Processing Available
+                        </p>
+                      </div>
+                      <p style={{ fontSize: '0.875rem', color: '#f59e0b' }}>
+                        No text extracted - use manual entry option
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button 
+                      onClick={() => {
+                        setDetailViewData(document);
+                        setDetailViewType('document');
+                        setShowDetailView(true);
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '0.75rem 1rem',
+                        background: 'rgba(59, 130, 246, 0.2)',
+                        border: '2px solid rgba(59, 130, 246, 0.3)',
+                        color: '#93c5fd',
+                        fontSize: '1rem',
+                        borderRadius: '0.75rem',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      👁️ View
+                    </button>
+                    <button 
+                      onClick={() => handleProcessDocument(document)}
+                      style={{
+                        flex: 1,
+                        padding: '0.75rem 1rem',
+                        background: 'rgba(16, 185, 129, 0.2)',
+                        border: '2px solid rgba(16, 185, 129, 0.3)',
+                        color: '#6ee7b7',
+                        fontSize: '1rem',
+                        borderRadius: '0.75rem',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      📝 Process
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteDocument(document.id)}
+                      style={{
+                        padding: '0.75rem 1rem',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        border: '2px solid rgba(239, 68, 68, 0.3)',
+                        color: '#fca5a5',
+                        fontSize: '1rem',
+                        borderRadius: '0.75rem',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Tax Returns Section */}
@@ -1324,278 +1439,245 @@ function Dashboard() {
             </div>
           </div>
           
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
-            gap: '2rem'
-          }}>
-            {taxReturns.map((taxReturn) => (
-              <div 
-                key={taxReturn.id} 
-                style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '2px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '1.5rem',
-                  padding: '2rem',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-                  e.target.style.transform = 'scale(1.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                  e.target.style.transform = 'scale(1)';
-                }}
-              >
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: '2rem'
-                }}>
-                  <div>
-                    <h3 style={{
-                      fontSize: '1.75rem',
-                      fontWeight: 'bold',
-                      marginBottom: '0.5rem',
-                      background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent'
-                    }}>
-                      Tax Year {taxReturn.tax_year}
-                    </h3>
-                    <p style={{ color: '#9ca3af', fontSize: '1rem' }}>
-                      Filed {new Date(taxReturn.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <span style={{
-                      padding: '0.5rem 1rem',
-                      borderRadius: '1rem',
-                      fontSize: '0.875rem',
-                      fontWeight: '700',
-                      background: taxReturn.status === 'draft' 
-                        ? 'rgba(245, 158, 11, 0.2)' 
-                        : 'rgba(16, 185, 129, 0.2)',
-                      border: taxReturn.status === 'draft'
-                        ? '2px solid rgba(245, 158, 11, 0.3)'
-                        : '2px solid rgba(16, 185, 129, 0.3)',
-                      color: taxReturn.status === 'draft' ? '#fbbf24' : '#6ee7b7'
-                    }}>
-                      {taxReturn.status.toUpperCase()}
-                    </span>
-                    {taxReturn.auto_generated && (
+          {taxReturns.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem',
+              color: '#9ca3af'
+            }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📊</div>
+              <p style={{ fontSize: '1.25rem' }}>No tax returns created yet</p>
+              <p style={{ fontSize: '1rem' }}>Create your first tax return to get started</p>
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
+              gap: '2rem'
+            }}>
+              {taxReturns.map((taxReturn) => (
+                <div 
+                  key={taxReturn.id} 
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '2px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '1.5rem',
+                    padding: '2rem',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+                    e.target.style.transform = 'scale(1.02)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    e.target.style.transform = 'scale(1)';
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '2rem'
+                  }}>
+                    <div>
+                      <h3 style={{
+                        fontSize: '1.75rem',
+                        fontWeight: 'bold',
+                        marginBottom: '0.5rem',
+                        background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent'
+                      }}>
+                        Tax Year {taxReturn.tax_year}
+                      </h3>
+                      <p style={{ color: '#9ca3af', fontSize: '1rem' }}>
+                        Filed {new Date(taxReturn.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <span style={{
                         padding: '0.5rem 1rem',
                         borderRadius: '1rem',
                         fontSize: '0.875rem',
                         fontWeight: '700',
-                        background: 'rgba(139, 92, 246, 0.2)',
-                        border: '2px solid rgba(139, 92, 246, 0.3)',
+                        background: taxReturn.status === 'draft' 
+                          ? 'rgba(245, 158, 11, 0.2)' 
+                          : 'rgba(16, 185, 129, 0.2)',
+                        border: taxReturn.status === 'draft'
+                          ? '2px solid rgba(245, 158, 11, 0.3)'
+                          : '2px solid rgba(16, 185, 129, 0.3)',
+                        color: taxReturn.status === 'draft' ? '#fbbf24' : '#6ee7b7'
+                      }}>
+                        {taxReturn.status.toUpperCase()}
+                      </span>
+                      {taxReturn.auto_generated && (
+                        <span style={{
+                          padding: '0.5rem 1rem',
+                          borderRadius: '1rem',
+                          fontSize: '0.875rem',
+                          fontWeight: '700',
+                          background: 'rgba(139, 92, 246, 0.2)',
+                          border: '2px solid rgba(139, 92, 246, 0.3)',
+                          color: '#c084fc',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}>
+                          🤖 AI
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {taxReturn.auto_generated && (
+                    <div style={{
+                      marginBottom: '1.5rem',
+                      padding: '1rem',
+                      background: 'rgba(139, 92, 246, 0.2)',
+                      border: '2px solid rgba(139, 92, 246, 0.3)',
+                      borderRadius: '1rem'
+                    }}>
+                      <p style={{
+                        fontSize: '1rem',
+                        fontWeight: '600',
                         color: '#c084fc',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.25rem'
+                        gap: '0.5rem'
                       }}>
-                        🤖 AI
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {taxReturn.auto_generated && (
-                  <div style={{
-                    marginBottom: '1.5rem',
-                    padding: '1rem',
-                    background: 'rgba(139, 92, 246, 0.2)',
-                    border: '2px solid rgba(139, 92, 246, 0.3)',
-                    borderRadius: '1rem'
-                  }}>
-                    <p style={{
-                      fontSize: '1rem',
-                      fontWeight: '600',
-                      color: '#c084fc',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem'
-                    }}>
-                      🤖 AI-generated from: {taxReturn.source_document}
-                    </p>
-                  </div>
-                )}
-
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '1rem',
-                  marginBottom: '2rem'
-                }}>
-                  {[
-                    { label: "Income", value: safeToNumber(taxReturn.income).toLocaleString(), icon: "💰", color: "#10b981" },
-                    { label: "Deductions", value: safeToNumber(taxReturn.deductions).toLocaleString(), icon: "📄", color: "#3b82f6" },
-                    { label: "Tax Owed", value: safeToFixed(taxReturn.tax_owed), icon: "⚠️", color: "#f59e0b" },
-                    { label: "Withholdings", value: safeToFixed(taxReturn.withholdings), icon: "🛡️", color: "#8b5cf6" }
-                  ].map((item, i) => (
-                    <div key={i} style={{
-                      textAlign: 'center',
-                      padding: '1rem',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      borderRadius: '1rem'
-                    }}>
-                      <span style={{
-                        fontSize: '2rem',
-                        display: 'block',
-                        marginBottom: '0.5rem',
-                        color: item.color
-                      }}>
-                        {item.icon}
-                      </span>
-                      <p style={{
-                        fontSize: '0.875rem',
-                        color: '#9ca3af',
-                        fontWeight: '600',
-                        marginBottom: '0.25rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em'
-                      }}>
-                        {item.label}
-                      </p>
-                      <p style={{
-                        fontSize: '1.25rem',
-                        fontWeight: 'bold',
-                        color: 'white'
-                      }}>
-                        {item.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                
-                <div style={{
-                  marginBottom: '2rem',
-                  padding: '1.5rem',
-                  borderRadius: '1.5rem',
-                  border: '3px dashed rgba(255, 255, 255, 0.2)',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  textAlign: 'center'
-                }}>
-                  {safeToNumber(taxReturn.refund_amount) > 0 ? (
-                    <div>
-                      <span style={{
-                        fontSize: '4rem',
-                        color: '#10b981',
-                        display: 'block',
-                        marginBottom: '0.5rem'
-                      }}>
-                        💰
-                      </span>
-                      <p style={{
-                        color: '#10b981',
-                        fontWeight: 'bold',
-                        fontSize: '2rem',
-                        background: 'linear-gradient(135deg, #10b981, #14b8a6)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent'
-                      }}>
-                        Refund: ${safeToFixed(taxReturn.refund_amount)}
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <span style={{
-                        fontSize: '4rem',
-                        color: '#ef4444',
-                        display: 'block',
-                        marginBottom: '0.5rem'
-                      }}>
-                        ⚠️
-                      </span>
-                      <p style={{
-                        color: '#ef4444',
-                        fontWeight: 'bold',
-                        fontSize: '2rem',
-                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent'
-                      }}>
-                        Amount Owed: ${safeToFixed(taxReturn.amount_owed)}
+                        🤖 AI-generated from: {taxReturn.source_document}
                       </p>
                     </div>
                   )}
-                </div>
-                
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <button 
-                    onClick={() => {
-                      const refundOrOwed = safeToNumber(taxReturn.refund_amount) > 0 
-                        ? 'Refund of ' + safeToFixed(taxReturn.refund_amount)
-                        : 'Amount Owed: ' + safeToFixed(taxReturn.amount_owed);
-                      
-                      const returnInfo = 'Tax Return Details - ' + taxReturn.tax_year + '\n\n' +
-                        'Financial Summary:\n' +
-                        '• Income: ' + safeToNumber(taxReturn.income).toLocaleString() + '\n' +
-                        '• Deductions: ' + safeToNumber(taxReturn.deductions).toLocaleString() + '\n' +
-                        '• Tax Owed: ' + safeToFixed(taxReturn.tax_owed) + '\n' +
-                        '• Withholdings: ' + safeToFixed(taxReturn.withholdings) + '\n\n' +
-                        'Result: ' + refundOrOwed + '\n\n' +
-                        'Status: ' + taxReturn.status.toUpperCase() + '\n' +
-                        'AI Generated: ' + (taxReturn.auto_generated ? 'Yes' : 'No') + '\n' +
-                        'Source: ' + taxReturn.source_document;
-                      
-                      alert(returnInfo);
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '1rem 1.5rem',
-                      background: 'rgba(107, 114, 128, 0.2)',
-                      border: '2px solid rgba(107, 114, 128, 0.3)',
-                      color: '#e2e8f0',
-                      fontSize: '1rem',
-                      borderRadius: '1rem',
-                      cursor: 'pointer',
-                      fontWeight: '600',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    👁️ View
-                  </button>
-                  {taxReturn.status === 'draft' && (
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '1rem',
+                    marginBottom: '2rem'
+                  }}>
+                    {[
+                      { label: "Income", value: safeToNumber(taxReturn.income).toLocaleString(), icon: "💰", color: "#10b981" },
+                      { label: "Deductions", value: safeToNumber(taxReturn.deductions).toLocaleString(), icon: "📄", color: "#3b82f6" },
+                      { label: "Tax Owed", value: safeToFixed(taxReturn.tax_owed), icon: "⚠️", color: "#f59e0b" },
+                      { label: "Withholdings", value: safeToFixed(taxReturn.withholdings), icon: "🛡️", color: "#8b5cf6" }
+                    ].map((item, i) => (
+                      <div key={i} style={{
+                        textAlign: 'center',
+                        padding: '1rem',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '1rem'
+                      }}>
+                        <span style={{
+                          fontSize: '2rem',
+                          display: 'block',
+                          marginBottom: '0.5rem',
+                          color: item.color
+                        }}>
+                          {item.icon}
+                        </span>
+                        <p style={{
+                          fontSize: '0.875rem',
+                          color: '#9ca3af',
+                          fontWeight: '600',
+                          marginBottom: '0.25rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}>
+                          {item.label}
+                        </p>
+                        <p style={{
+                          fontSize: '1.25rem',
+                          fontWeight: 'bold',
+                          color: 'white'
+                        }}>
+                          {item.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div style={{
+                    marginBottom: '2rem',
+                    padding: '1.5rem',
+                    borderRadius: '1.5rem',
+                    border: '3px dashed rgba(255, 255, 255, 0.2)',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    textAlign: 'center'
+                  }}>
+                    {safeToNumber(taxReturn.refund_amount) > 0 ? (
+                      <div>
+                        <span style={{
+                          fontSize: '4rem',
+                          color: '#10b981',
+                          display: 'block',
+                          marginBottom: '0.5rem'
+                        }}>
+                          💰
+                        </span>
+                        <p style={{
+                          color: '#10b981',
+                          fontWeight: 'bold',
+                          fontSize: '2rem',
+                          background: 'linear-gradient(135deg, #10b981, #14b8a6)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent'
+                        }}>
+                          Refund: ${safeToFixed(taxReturn.refund_amount)}
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <span style={{
+                          fontSize: '4rem',
+                          color: '#ef4444',
+                          display: 'block',
+                          marginBottom: '0.5rem'
+                        }}>
+                          ⚠️
+                        </span>
+                        <p style={{
+                          color: '#ef4444',
+                          fontWeight: 'bold',
+                          fontSize: '2rem',
+                          background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent'
+                        }}>
+                          Amount Owed: ${safeToFixed(taxReturn.amount_owed)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '1rem' }}>
                     <button 
                       onClick={() => {
-                        const newIncome = prompt('Edit Income for ' + taxReturn.tax_year + ':', taxReturn.income);
-                        const newWithholdings = prompt('Edit Withholdings for ' + taxReturn.tax_year + ':', taxReturn.withholdings);
-                        const newDeductions = prompt('Edit Deductions for ' + taxReturn.tax_year + ':', taxReturn.deductions);
+                        const refundOrOwed = safeToNumber(taxReturn.refund_amount) > 0 
+                          ? 'Refund of  + safeToFixed(taxReturn.refund_amount)
+                          : 'Amount Owed:  + safeToFixed(taxReturn.amount_owed);
                         
-                        const updatedReturn = {
-                          ...taxReturn,
-                          income: safeToNumber(newIncome || taxReturn.income),
-                          withholdings: safeToNumber(newWithholdings || taxReturn.withholdings),
-                          deductions: safeToNumber(newDeductions || taxReturn.deductions)
-                        };
+                        const returnInfo = 'Tax Return Details - ' + taxReturn.tax_year + '\n\n' +
+                          'Financial Summary:\n' +
+                          '• Income:  + safeToNumber(taxReturn.income).toLocaleString() + '\n' +
+                          '• Deductions:  + safeToNumber(taxReturn.deductions).toLocaleString() + '\n' +
+                          '• Tax Owed:  + safeToFixed(taxReturn.tax_owed) + '\n' +
+                          '• Withholdings:  + safeToFixed(taxReturn.withholdings) + '\n\n' +
+                          'Result: ' + refundOrOwed + '\n\n' +
+                          'Status: ' + taxReturn.status.toUpperCase() + '\n' +
+                          'AI Generated: ' + (taxReturn.auto_generated ? 'Yes' : 'No') + '\n' +
+                          'Source: ' + taxReturn.source_document;
                         
-                        const taxOwed = (updatedReturn.income - updatedReturn.deductions) * 0.22;
-                        if (updatedReturn.withholdings > taxOwed) {
-                          updatedReturn.refund_amount = updatedReturn.withholdings - taxOwed;
-                          updatedReturn.amount_owed = 0;
-                        } else {
-                          updatedReturn.refund_amount = 0;
-                          updatedReturn.amount_owed = taxOwed - updatedReturn.withholdings;
-                        }
-                        
-                        setTaxReturns(prev => prev.map(tr => 
-                          tr.id === taxReturn.id ? updatedReturn : tr
-                        ));
-                        
-                        alert('Tax return for ' + taxReturn.tax_year + ' updated successfully!');
+                        alert(returnInfo);
                       }}
                       style={{
                         flex: 1,
                         padding: '1rem 1.5rem',
-                        background: 'rgba(59, 130, 246, 0.2)',
-                        border: '2px solid rgba(59, 130, 246, 0.3)',
-                        color: '#93c5fd',
+                        background: 'rgba(107, 114, 128, 0.2)',
+                        border: '2px solid rgba(107, 114, 128, 0.3)',
+                        color: '#e2e8f0',
                         fontSize: '1rem',
                         borderRadius: '1rem',
                         cursor: 'pointer',
@@ -1603,60 +1685,107 @@ function Dashboard() {
                         transition: 'all 0.3s ease'
                       }}
                     >
-                      ✏️ Edit
+                      👁️ View
                     </button>
-                  )}
-                  <button 
-                    onClick={() => {
-                      const refundOrOwedResult = safeToNumber(taxReturn.refund_amount) > 0 
-                        ? 'Refund Amount: ' + safeToFixed(taxReturn.refund_amount)
-                        : 'Amount Owed: ' + safeToFixed(taxReturn.amount_owed);
-                      
-                      const pdfContent = 'TAX RETURN SUMMARY - ' + taxReturn.tax_year + '\n\n' +
-                        'Taxpayer: ' + (user?.full_name || 'Your Name') + '\n' +
-                        'Tax Year: ' + taxReturn.tax_year + '\n' +
-                        'Filing Status: ' + taxReturn.status.toUpperCase() + '\n\n' +
-                        'INCOME INFORMATION:\n' +
-                        'Total Income: ' + safeToNumber(taxReturn.income).toLocaleString() + '\n' +
-                        'Deductions: ' + safeToNumber(taxReturn.deductions).toLocaleString() + '\n' +
-                        'Tax Owed: ' + safeToFixed(taxReturn.tax_owed) + '\n' +
-                        'Withholdings: ' + safeToFixed(taxReturn.withholdings) + '\n\n' +
-                        'RESULT:\n' +
-                        refundOrOwedResult + '\n\n' +
-                        'Generated by TaxBox.AI\n' +
-                        (taxReturn.auto_generated ? 'AI-Generated from: ' + taxReturn.source_document : 'Manually entered') + '\n' +
-                        'Date: ' + new Date(taxReturn.created_at).toLocaleDateString();
-                      
-                      const blob = new Blob([pdfContent], { type: 'text/plain' });
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = 'tax_return_' + taxReturn.tax_year + '_' + taxReturn.id + '.txt';
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      window.URL.revokeObjectURL(url);
-                      
-                      alert('Tax return for ' + taxReturn.tax_year + ' downloaded successfully!');
-                    }}
-                    style={{
-                      padding: '1rem 1.5rem',
-                      background: 'rgba(16, 185, 129, 0.2)',
-                      border: '2px solid rgba(16, 185, 129, 0.3)',
-                      color: '#6ee7b7',
-                      fontSize: '1rem',
-                      borderRadius: '1rem',
-                      cursor: 'pointer',
-                      fontWeight: '600',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    📥
-                  </button>
+                    {taxReturn.status === 'draft' && (
+                      <button 
+                        onClick={() => {
+                          const newIncome = prompt('Edit Income for ' + taxReturn.tax_year + ':', taxReturn.income);
+                          const newWithholdings = prompt('Edit Withholdings for ' + taxReturn.tax_year + ':', taxReturn.withholdings);
+                          const newDeductions = prompt('Edit Deductions for ' + taxReturn.tax_year + ':', taxReturn.deductions);
+                          
+                          if (newIncome !== null || newWithholdings !== null || newDeductions !== null) {
+                            const updatedReturn = {
+                              ...taxReturn,
+                              income: safeToNumber(newIncome || taxReturn.income),
+                              withholdings: safeToNumber(newWithholdings || taxReturn.withholdings),
+                              deductions: safeToNumber(newDeductions || taxReturn.deductions)
+                            };
+                            
+                            const taxOwed = (updatedReturn.income - updatedReturn.deductions) * 0.22;
+                            if (updatedReturn.withholdings > taxOwed) {
+                              updatedReturn.refund_amount = updatedReturn.withholdings - taxOwed;
+                              updatedReturn.amount_owed = 0;
+                            } else {
+                              updatedReturn.refund_amount = 0;
+                              updatedReturn.amount_owed = taxOwed - updatedReturn.withholdings;
+                            }
+                            
+                            setTaxReturns(prev => prev.map(tr => 
+                              tr.id === taxReturn.id ? updatedReturn : tr
+                            ));
+                            
+                            alert('Tax return for ' + taxReturn.tax_year + ' updated successfully!');
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '1rem 1.5rem',
+                          background: 'rgba(59, 130, 246, 0.2)',
+                          border: '2px solid rgba(59, 130, 246, 0.3)',
+                          color: '#93c5fd',
+                          fontSize: '1rem',
+                          borderRadius: '1rem',
+                          cursor: 'pointer',
+                          fontWeight: '600',
+                          transition: 'all 0.3s ease'
+                        }}
+                      >
+                        ✏️ Edit
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => {
+                        const refundOrOwedResult = safeToNumber(taxReturn.refund_amount) > 0 
+                          ? 'Refund Amount:  + safeToFixed(taxReturn.refund_amount)
+                          : 'Amount Owed:  + safeToFixed(taxReturn.amount_owed);
+                        
+                        const pdfContent = 'TAX RETURN SUMMARY - ' + taxReturn.tax_year + '\n\n' +
+                          'Taxpayer: ' + (user?.full_name || 'Your Name') + '\n' +
+                          'Tax Year: ' + taxReturn.tax_year + '\n' +
+                          'Filing Status: ' + taxReturn.status.toUpperCase() + '\n\n' +
+                          'INCOME INFORMATION:\n' +
+                          'Total Income:  + safeToNumber(taxReturn.income).toLocaleString() + '\n' +
+                          'Deductions:  + safeToNumber(taxReturn.deductions).toLocaleString() + '\n' +
+                          'Tax Owed:  + safeToFixed(taxReturn.tax_owed) + '\n' +
+                          'Withholdings:  + safeToFixed(taxReturn.withholdings) + '\n\n' +
+                          'RESULT:\n' +
+                          refundOrOwedResult + '\n\n' +
+                          'Generated by TaxBox.AI\n' +
+                          (taxReturn.auto_generated ? 'AI-Generated from: ' + taxReturn.source_document : 'Manually entered') + '\n' +
+                          'Date: ' + new Date(taxReturn.created_at).toLocaleDateString();
+                        
+                        const blob = new Blob([pdfContent], { type: 'text/plain' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'tax_return_' + taxReturn.tax_year + '_' + taxReturn.id + '.txt';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                        
+                        alert('Tax return for ' + taxReturn.tax_year + ' downloaded successfully!');
+                      }}
+                      style={{
+                        padding: '1rem 1.5rem',
+                        background: 'rgba(16, 185, 129, 0.2)',
+                        border: '2px solid rgba(16, 185, 129, 0.3)',
+                        color: '#6ee7b7',
+                        fontSize: '1rem',
+                        borderRadius: '1rem',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      📥
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Detail View Modal */}
@@ -1803,8 +1932,8 @@ function Dashboard() {
                         color: safeToNumber(detailViewData.refund_amount) > 0 ? '#10b981' : '#ef4444'
                       }}>
                         {safeToNumber(detailViewData.refund_amount) > 0 
-                          ? 'Refund: ' + safeToFixed(detailViewData.refund_amount)
-                          : 'Amount Owed: ' + safeToFixed(detailViewData.amount_owed)
+                          ? 'Refund:  + safeToFixed(detailViewData.refund_amount)
+                          : 'Amount Owed:  + safeToFixed(detailViewData.amount_owed)
                         }
                       </p>
                     </div>
