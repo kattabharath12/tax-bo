@@ -26,9 +26,9 @@ function Dashboard() {
   const [currentDocument, setCurrentDocument] = useState(null);
   const [processingDocument, setProcessingDocument] = useState(false);
   const [autoFilingEnabled, setAutoFilingEnabled] = useState(true);
-  const [showDetailView, setShowDetailView] = useState(false);
-  const [detailViewData, setDetailViewData] = useState(null);
-  const [detailViewType, setDetailViewType] = useState('');
+  // const [showDetailView, setShowDetailView] = useState(false);
+  // const [detailViewData, setDetailViewData] = useState(null);
+  // const [detailViewType, setDetailViewType] = useState('');
   const [manualTaxData, setManualTaxData] = useState({
     income: '',
     withholdings: '',
