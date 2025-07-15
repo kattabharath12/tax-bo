@@ -1687,7 +1687,7 @@ function Dashboard() {
   );
 }
 
-export default Dashboard;, 255, 255, 0.2)',
+export default Dashboard;
                       borderRadius: '0.75rem',
                       padding: '0.75rem 1rem',
                       color: 'white',
