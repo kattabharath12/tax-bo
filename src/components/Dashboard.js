@@ -164,7 +164,16 @@ function Dashboard() {
       setProcessingDocument(false);
       setError(null);
       
-      alert('You have been logged out successfully. In a real app, you would be redirected to the login page.');
+      // Show logout message
+      alert('Logging out...');
+      
+      // Redirect to login page
+      // Replace '/login' with your actual login page URL
+      window.location.href = '/login';
+      
+      // Alternative: If you're using React Router, you could use:
+      // navigate('/login'); // if using useNavigate hook
+      // or history.push('/login'); // if using older React Router
     }
   };
 
