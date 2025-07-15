@@ -1,77 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-// API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api';
-
-// Helper function to get auth token
-const getAuthToken = () => {
-  return localStorage.getItem('token') || '';
-};
-
-// API Functions
-const updateTaxReturn = async (id, data) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/tax-returns/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAuthToken()}`
-      },
-      body: JSON.stringify(data)
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to update tax return');
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('Update tax return error:', error);
-    throw error;
-  }
-};
-
-const saveTaxReturn = async (data) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/tax-returns`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getAuthToken()}`
-      },
-      body: JSON.stringify(data)
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to save tax return');
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('Save tax return error:', error);
-    throw error;
-  }
-};
-
-const deleteDocument = async (id) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/documents/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${getAuthToken()}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to delete document');
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('Delete document error:', error);
-    throw error;
-  }
-};
+import { apiService } from '../services/api';
 
 function Dashboard() {
   const [user] = useState({ full_name: 'Your Name' });
@@ -116,13 +44,14 @@ function Dashboard() {
       setError(null);
       
       try {
-        // Simulate loading initial data
-        // Replace with actual API calls when backend is ready
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Load tax returns and documents using API service
+        const [taxReturnsData, documentsData] = await Promise.all([
+          apiService.getTaxReturns(),
+          apiService.getDocuments()
+        ]);
         
-        // Mock data for development
-        setTaxReturns([]);
-        setDocuments([]);
+        setTaxReturns(taxReturnsData || []);
+        setDocuments(documentsData || []);
         
       } catch (err) {
         setError('Failed to load data. Please try again.');
@@ -154,52 +83,27 @@ function Dashboard() {
     setError(null);
     
     try {
-      // Create FormData for file upload
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      // Upload file to backend
-      const response = await fetch(`${API_BASE_URL}/documents/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error('File upload failed');
-      }
-
-      const uploadedDoc = await response.json();
+      // Upload using API service
+      const uploadedDoc = await apiService.uploadDocument(file);
       
       // Add to local state
       setDocuments(prev => [uploadedDoc, ...prev]);
       setProcessingDocument(false);
       setShowUploadForm(false);
       
-      // AI Processing Logic
+      // AI Processing Logic (simulated)
       if (autoFilingEnabled) {
-        if (uploadedDoc.ocr_text) {
-          setTimeout(() => {
-            const extractedData = simulateAIExtraction(uploadedDoc);
+        setTimeout(() => {
+          const extractedData = simulateAIExtraction(uploadedDoc);
+          
+          if (extractedData) {
+            const confirmMessage = `AI successfully extracted tax data from ${uploadedDoc.filename}!\n\nDetected:\n• Income: ${extractedData.income.toLocaleString()}\n• Withholdings: ${extractedData.withholdings.toLocaleString()}\n• Tax Year: ${extractedData.tax_year}\n\nWould you like to create a tax return with this data?`;
             
-            if (extractedData) {
-              const confirmMessage = `AI successfully extracted tax data from ${uploadedDoc.filename}!\n\nDetected:\n• Income: ${extractedData.income.toLocaleString()}\n• Withholdings: ${extractedData.withholdings.toLocaleString()}\n• Tax Year: ${extractedData.tax_year}\n\nWould you like to create a tax return with this data?`;
-              
-              if (window.confirm(confirmMessage)) {
-                createTaxReturnFromData(extractedData, uploadedDoc);
-              }
+            if (window.confirm(confirmMessage)) {
+              createTaxReturnFromData(extractedData, uploadedDoc);
             }
-          }, 1500);
-        } else {
-          setTimeout(() => {
-            if (window.confirm('No OCR text detected. Would you like to manually enter tax information from this document?')) {
-              setCurrentDocument(uploadedDoc);
-              setShowManualEntry(true);
-            }
-          }, 1000);
-        }
+          }
+        }, 1500);
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -252,8 +156,8 @@ function Dashboard() {
           source_document: `${existingReturn.source_document}, ${sourceDocument.filename}`
         };
         
-        // Save to backend
-        const savedReturn = await updateTaxReturn(existingReturn.id, updatedReturn);
+        // Update using API service
+        const savedReturn = await apiService.updateTaxReturn(existingReturn.id, updatedReturn);
         
         // Update local state
         setTaxReturns(prev => prev.map(tr => 
@@ -264,37 +168,18 @@ function Dashboard() {
         
         alert(alertMessage);
       } else {
-        // Create new return
-        const income = safeToNumber(extractedData.income);
-        const withholdings = safeToNumber(extractedData.withholdings);
-        const deductions = safeToNumber(extractedData.deductions);
-        
-        const newReturn = {
+        // Create new return using API service
+        const newTaxReturnData = {
           tax_year: extractedData.tax_year,
-          income: income,
-          withholdings: withholdings,
-          deductions: deductions,
-          tax_owed: Math.max(0, (income - deductions) * 0.22 - withholdings),
-          refund_amount: 0,
-          amount_owed: 0,
-          status: 'draft',
-          auto_generated: true,
-          source_document: sourceDocument.filename,
-          created_at: new Date().toISOString()
+          income: safeToNumber(extractedData.income),
+          withholdings: safeToNumber(extractedData.withholdings),
+          deductions: safeToNumber(extractedData.deductions),
+          filing_status_info: {
+            filing_status: 'single'
+          }
         };
         
-        // Calculate refund vs owed
-        const taxOwed = (newReturn.income - newReturn.deductions) * 0.22;
-        if (newReturn.withholdings > taxOwed) {
-          newReturn.refund_amount = newReturn.withholdings - taxOwed;
-          newReturn.amount_owed = 0;
-        } else {
-          newReturn.refund_amount = 0;
-          newReturn.amount_owed = taxOwed - newReturn.withholdings;
-        }
-        
-        // Save to backend
-        const savedReturn = await saveTaxReturn(newReturn);
+        const savedReturn = await apiService.createTaxReturn(newTaxReturnData);
         
         // Update local state
         setTaxReturns(prev => [savedReturn, ...prev]);
@@ -318,35 +203,18 @@ function Dashboard() {
     setError(null);
     
     try {
-      const income = safeToNumber(manualTaxData.income);
-      const withholdings = safeToNumber(manualTaxData.withholdings);
-      const deductions = safeToNumber(manualTaxData.deductions) || 12550;
-      
-      const newReturn = {
+      const newTaxReturnData = {
         tax_year: parseInt(manualTaxData.tax_year),
-        income: income,
-        withholdings: withholdings,
-        deductions: deductions,
-        tax_owed: 0,
-        refund_amount: 0,
-        amount_owed: 0,
-        status: 'draft',
-        auto_generated: false,
-        source_document: currentDocument?.filename || 'manual_entry',
-        created_at: new Date().toISOString()
+        income: safeToNumber(manualTaxData.income),
+        withholdings: safeToNumber(manualTaxData.withholdings),
+        deductions: safeToNumber(manualTaxData.deductions) || null,
+        filing_status_info: {
+          filing_status: 'single'
+        }
       };
       
-      const taxOwed = (income - deductions) * 0.22;
-      if (withholdings > taxOwed) {
-        newReturn.refund_amount = withholdings - taxOwed;
-        newReturn.amount_owed = 0;
-      } else {
-        newReturn.refund_amount = 0;
-        newReturn.amount_owed = taxOwed - withholdings;
-      }
-      
-      // Save to backend
-      const savedReturn = await saveTaxReturn(newReturn);
+      // Create using API service
+      const savedReturn = await apiService.createTaxReturn(newTaxReturnData);
       
       // Update local state
       setTaxReturns(prev => [savedReturn, ...prev]);
@@ -359,6 +227,12 @@ function Dashboard() {
         tax_year: new Date().getFullYear() - 1,
         document_type: 'w2'
       });
+      
+      const result = savedReturn.refund_amount > 0 
+        ? `Refund: ${savedReturn.refund_amount.toFixed(2)}`
+        : `Owed: ${savedReturn.amount_owed.toFixed(2)}`;
+      
+      alert(`Tax return created successfully!\n\n${result}`);
     } catch (error) {
       console.error('Error saving manual tax return:', error);
       setError(`Failed to save tax return: ${error.message}`);
@@ -368,11 +242,13 @@ function Dashboard() {
   const handleDeleteDocument = async (documentId) => {
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
-        // Delete from backend
-        await deleteDocument(documentId);
+        // Delete using API service
+        await apiService.deleteDocument(documentId);
         
         // Update local state
         setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+        
+        alert('Document deleted successfully!');
       } catch (error) {
         console.error('Error deleting document:', error);
         setError(`Failed to delete document: ${error.message}`);
@@ -637,37 +513,6 @@ function Dashboard() {
                     color: '#e2e8f0',
                     marginBottom: '0.5rem'
                   }}>
-                    Document Type
-                  </label>
-                  <select
-                    value={manualTaxData.document_type}
-                    onChange={(e) => setManualTaxData(prev => ({...prev, document_type: e.target.value}))}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: '2px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: '0.75rem',
-                      padding: '0.75rem 1rem',
-                      color: 'white',
-                      fontSize: '0.875rem',
-                      width: '100%',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    <option value="w2">💼 W-2 (Wage Statement)</option>
-                    <option value="1099">💰 1099 (Miscellaneous Income)</option>
-                    <option value="1098">🏠 1098 (Mortgage Interest)</option>
-                    <option value="other">📄 Other</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    color: '#e2e8f0',
-                    marginBottom: '0.5rem'
-                  }}>
                     Tax Year
                   </label>
                   <select
@@ -745,6 +590,35 @@ function Dashboard() {
                       transition: 'all 0.3s ease'
                     }}
                     placeholder="8,500.00"
+                  />
+                </div>
+                
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    color: '#e2e8f0',
+                    marginBottom: '0.5rem'
+                  }}>
+                    📄 Deductions ($) - Optional
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={manualTaxData.deductions}
+                    onChange={(e) => setManualTaxData(prev => ({...prev, deductions: e.target.value}))}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '2px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '0.75rem',
+                      padding: '0.75rem 1rem',
+                      color: 'white',
+                      fontSize: '0.875rem',
+                      width: '100%',
+                      transition: 'all 0.3s ease'
+                    }}
+                    placeholder="Leave blank for standard deduction"
                   />
                 </div>
               </div>
@@ -950,7 +824,7 @@ function Dashboard() {
                   const returnsList = taxReturns.map(tr => 
                     `• ${tr.tax_year}: ${tr.status} - ${safeToNumber(tr.income).toLocaleString()}`
                   ).join('\n');
-                  alert(`You have ${taxReturns.length} tax returns:\n\n${returnsList}`);
+                  alert(`You have ${taxReturns.length} tax returns:\n\n${returnsList || 'No returns yet'}`);
                 }
               }
             ].map((item, index) => (
@@ -962,8 +836,6 @@ function Dashboard() {
                   border: '1px solid rgba(255, 255, 255, 0.2)',
                   borderRadius: '2rem',
                   padding: '2.5rem',
-                  marginBottom: '2rem',
-                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
                   textAlign: 'center',
                   cursor: 'pointer',
                   transition: 'all 0.3s ease'
@@ -1045,7 +917,6 @@ function Dashboard() {
               border: '2px solid rgba(255, 255, 255, 0.2)',
               borderRadius: '2rem',
               padding: '2rem',
-              marginBottom: '2rem',
               boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
               transition: 'all 0.3s ease'
             }}
@@ -1231,7 +1102,7 @@ function Dashboard() {
                         {document.filename}
                       </h3>
                       <p style={{ fontSize: '1rem', color: '#9ca3af' }}>
-                        {document.file_type} • {(document.file_size / 1024).toFixed(1)} KB
+                        {document.file_type} • {((document.file_size || 0) / 1024).toFixed(1)} KB
                       </p>
                     </div>
                   </div>
@@ -1277,9 +1148,7 @@ function Dashboard() {
                   <div style={{ display: 'flex', gap: '1rem' }}>
                     <button 
                       onClick={() => {
-                        setDetailViewData(document);
-                        setDetailViewType('document');
-                        setShowDetailView(true);
+                        alert(`Document: ${document.filename}\nType: ${document.file_type}\nSize: ${((document.file_size || 0) / 1024).toFixed(1)} KB\nUploaded: ${new Date(document.uploaded_at).toLocaleDateString()}`);
                       }}
                       style={{
                         flex: 1,
@@ -1502,45 +1371,8 @@ function Dashboard() {
                       }}>
                         {taxReturn.status.toUpperCase()}
                       </span>
-                      {taxReturn.auto_generated && (
-                        <span style={{
-                          padding: '0.5rem 1rem',
-                          borderRadius: '1rem',
-                          fontSize: '0.875rem',
-                          fontWeight: '700',
-                          background: 'rgba(139, 92, 246, 0.2)',
-                          border: '2px solid rgba(139, 92, 246, 0.3)',
-                          color: '#c084fc',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.25rem'
-                        }}>
-                          🤖 AI
-                        </span>
-                      )}
                     </div>
                   </div>
-
-                  {taxReturn.auto_generated && (
-                    <div style={{
-                      marginBottom: '1.5rem',
-                      padding: '1rem',
-                      background: 'rgba(139, 92, 246, 0.2)',
-                      border: '2px solid rgba(139, 92, 246, 0.3)',
-                      borderRadius: '1rem'
-                    }}>
-                      <p style={{
-                        fontSize: '1rem',
-                        fontWeight: '600',
-                        color: '#c084fc',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem'
-                      }}>
-                        🤖 AI-generated from: {taxReturn.source_document}
-                      </p>
-                    </div>
-                  )}
 
                   <div style={{
                     display: 'grid',
@@ -1584,7 +1416,7 @@ function Dashboard() {
                           fontWeight: 'bold',
                           color: 'white'
                         }}>
-                          {item.value}
+                          ${item.value}
                         </p>
                       </div>
                     ))}
@@ -1650,7 +1482,7 @@ function Dashboard() {
                           ? `Refund of ${safeToFixed(taxReturn.refund_amount)}`
                           : `Amount Owed: ${safeToFixed(taxReturn.amount_owed)}`;
                         
-                        const returnInfo = `Tax Return Details - ${taxReturn.tax_year}\n\nFinancial Summary:\n• Income: ${safeToNumber(taxReturn.income).toLocaleString()}\n• Deductions: ${safeToNumber(taxReturn.deductions).toLocaleString()}\n• Tax Owed: ${safeToFixed(taxReturn.tax_owed)}\n• Withholdings: ${safeToFixed(taxReturn.withholdings)}\n\nResult: ${refundOrOwed}\n\nStatus: ${taxReturn.status.toUpperCase()}\nAI Generated: ${taxReturn.auto_generated ? 'Yes' : 'No'}\nSource: ${taxReturn.source_document}`;
+                        const returnInfo = `Tax Return Details - ${taxReturn.tax_year}\n\nFinancial Summary:\n• Income: ${safeToNumber(taxReturn.income).toLocaleString()}\n• Deductions: ${safeToNumber(taxReturn.deductions).toLocaleString()}\n• Tax Owed: ${safeToFixed(taxReturn.tax_owed)}\n• Withholdings: ${safeToFixed(taxReturn.withholdings)}\n\nResult: ${refundOrOwed}\n\nStatus: ${taxReturn.status.toUpperCase()}\nFiling Status: ${taxReturn.filing_status || 'single'}`;
                         
                         alert(returnInfo);
                       }}
@@ -1677,27 +1509,28 @@ function Dashboard() {
                           const newDeductions = prompt(`Edit Deductions for ${taxReturn.tax_year}:`, taxReturn.deductions);
                           
                           if (newIncome !== null || newWithholdings !== null || newDeductions !== null) {
-                            const updatedReturn = {
-                              ...taxReturn,
+                            const updatedData = {
+                              tax_year: taxReturn.tax_year,
                               income: safeToNumber(newIncome || taxReturn.income),
                               withholdings: safeToNumber(newWithholdings || taxReturn.withholdings),
-                              deductions: safeToNumber(newDeductions || taxReturn.deductions)
+                              deductions: safeToNumber(newDeductions || taxReturn.deductions),
+                              filing_status_info: {
+                                filing_status: taxReturn.filing_status || 'single'
+                              }
                             };
                             
-                            const taxOwed = (updatedReturn.income - updatedReturn.deductions) * 0.22;
-                            if (updatedReturn.withholdings > taxOwed) {
-                              updatedReturn.refund_amount = updatedReturn.withholdings - taxOwed;
-                              updatedReturn.amount_owed = 0;
-                            } else {
-                              updatedReturn.refund_amount = 0;
-                              updatedReturn.amount_owed = taxOwed - updatedReturn.withholdings;
-                            }
-                            
-                            setTaxReturns(prev => prev.map(tr => 
-                              tr.id === taxReturn.id ? updatedReturn : tr
-                            ));
-                            
-                            alert(`Tax return for ${taxReturn.tax_year} updated successfully!`);
+                            // Update using API service
+                            apiService.updateTaxReturn(taxReturn.id, updatedData)
+                              .then(updatedReturn => {
+                                setTaxReturns(prev => prev.map(tr => 
+                                  tr.id === taxReturn.id ? updatedReturn : tr
+                                ));
+                                alert(`Tax return for ${taxReturn.tax_year} updated successfully!`);
+                              })
+                              .catch(error => {
+                                console.error('Error updating tax return:', error);
+                                alert('Failed to update tax return');
+                              });
                           }
                         }}
                         style={{
@@ -1722,7 +1555,7 @@ function Dashboard() {
                           ? `Refund Amount: ${safeToFixed(taxReturn.refund_amount)}`
                           : `Amount Owed: ${safeToFixed(taxReturn.amount_owed)}`;
                         
-                        const pdfContent = `TAX RETURN SUMMARY - ${taxReturn.tax_year}\n\nTaxpayer: ${user?.full_name || 'Your Name'}\nTax Year: ${taxReturn.tax_year}\nFiling Status: ${taxReturn.status.toUpperCase()}\n\nINCOME INFORMATION:\nTotal Income: ${safeToNumber(taxReturn.income).toLocaleString()}\nDeductions: ${safeToNumber(taxReturn.deductions).toLocaleString()}\nTax Owed: ${safeToFixed(taxReturn.tax_owed)}\nWithholdings: ${safeToFixed(taxReturn.withholdings)}\n\nRESULT:\n${refundOrOwedResult}\n\nGenerated by TaxBox.AI\n${taxReturn.auto_generated ? `AI-Generated from: ${taxReturn.source_document}` : 'Manually entered'}\nDate: ${new Date(taxReturn.created_at).toLocaleDateString()}`;
+                        const pdfContent = `TAX RETURN SUMMARY - ${taxReturn.tax_year}\n\nTaxpayer: ${user?.full_name || 'Your Name'}\nTax Year: ${taxReturn.tax_year}\nFiling Status: ${taxReturn.status.toUpperCase()}\n\nINCOME INFORMATION:\nTotal Income: ${safeToNumber(taxReturn.income).toLocaleString()}\nDeductions: ${safeToNumber(taxReturn.deductions).toLocaleString()}\nTax Owed: ${safeToFixed(taxReturn.tax_owed)}\nWithholdings: ${safeToFixed(taxReturn.withholdings)}\n\nRESULT:\n${refundOrOwedResult}\n\nGenerated by TaxBox.AI\nDate: ${new Date(taxReturn.created_at).toLocaleDateString()}`;
                         
                         const blob = new Blob([pdfContent], { type: 'text/plain' });
                         const url = window.URL.createObjectURL(blob);
@@ -1757,117 +1590,6 @@ function Dashboard() {
           )}
         </div>
 
-        {/* Detail View Modal */}
-        {showDetailView && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '2rem'
-          }}>
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 27, 75, 0.95))',
-              backdropFilter: 'blur(20px)',
-              border: '2px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '2rem',
-              padding: '2rem',
-              maxWidth: '800px',
-              maxHeight: '80vh',
-              overflow: 'auto',
-              width: '100%'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>
-                  {detailViewType === 'document' && '📄 Document Details'}
-                  {detailViewType === 'taxReturn' && '📊 Tax Return Details'}
-                  {detailViewType === 'allReturns' && '📋 All Tax Returns'}
-                  {detailViewType === 'message' && '💡 Information'}
-                </h2>
-                <button
-                  onClick={() => setShowDetailView(false)}
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.2)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#fca5a5',
-                    borderRadius: '0.5rem',
-                    padding: '0.5rem 1rem',
-                    cursor: 'pointer',
-                    fontSize: '1.5rem'
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Document Details */}
-              {detailViewType === 'document' && detailViewData && (
-                <div style={{ color: 'white' }}>
-                  <div style={{
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    borderRadius: '1rem',
-                    padding: '1.5rem',
-                    marginBottom: '1.5rem'
-                  }}>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#06b6d4' }}>
-                      {detailViewData.filename}
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                      <div>
-                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>File Type</p>
-                        <p style={{ fontWeight: '600' }}>{detailViewData.file_type}</p>
-                      </div>
-                      <div>
-                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>File Size</p>
-                        <p style={{ fontWeight: '600' }}>{(detailViewData.file_size / 1024).toFixed(1)} KB</p>
-                      </div>
-                      <div>
-                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Uploaded</p>
-                        <p style={{ fontWeight: '600' }}>{new Date(detailViewData.uploaded_at).toLocaleDateString()}</p>
-                      </div>
-                      <div>
-                        <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginBottom: '0.25rem' }}>OCR Status</p>
-                        <p style={{ fontWeight: '600', color: detailViewData.ocr_text ? '#10b981' : '#f59e0b' }}>
-                          {detailViewData.ocr_text ? '✅ Text Extracted' : '⚠️ No Text Extracted'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  {detailViewData.ocr_text && (
-                    <div style={{
-                      background: 'rgba(16, 185, 129, 0.1)',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
-                      borderRadius: '1rem',
-                      padding: '1rem'
-                    }}>
-                      <p style={{ color: '#10b981', fontWeight: '600', marginBottom: '0.5rem' }}>Extracted Text Preview:</p>
-                      <p style={{ color: '#d1d5db', fontSize: '0.875rem' }}>{detailViewData.ocr_text}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Message View */}
-              {detailViewType === 'message' && detailViewData && (
-                <div style={{
-                  textAlign: 'center',
-                  color: 'white',
-                  padding: '2rem'
-                }}>
-                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
-                  <p style={{ fontSize: '1.125rem', color: '#e2e8f0' }}>{detailViewData.message}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Footer */}
         <div style={{
           background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.1))',
@@ -1875,7 +1597,6 @@ function Dashboard() {
           border: '1px solid rgba(255, 255, 255, 0.1)',
           borderRadius: '2rem',
           padding: '2.5rem',
-          marginBottom: '2rem',
           boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
           textAlign: 'center'
         }}>
