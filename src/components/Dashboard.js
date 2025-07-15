@@ -1,649 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { apiService } from '../services/api';
-
-function Dashboard() {
-  // User state - now loads real user data
-  const [user, setUser] = useState(null);
-  const [userLoading, setUserLoading] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  
-  // Logout function that navigates back to login
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout?')) {
-      // Clear authentication data
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      sessionStorage.clear();
-      
-      // Navigate back to login page
-      window.location.href = '/login';
-    }
-  };
-  
-  const [taxReturns, setTaxReturns] = useState([]);
-  const [documents, setDocuments] = useState([]);
-  const [showUploadForm, setShowUploadForm] = useState(false);
-  const [showManualEntry, setShowManualEntry] = useState(false);
-  const [currentDocument, setCurrentDocument] = useState(null);
-  const [processingDocument, setProcessingDocument] = useState(false);
-  const [autoFilingEnabled, setAutoFilingEnabled] = useState(true);
-  const [showDetailView, setShowDetailView] = useState(false);
-  const [detailViewData, setDetailViewData] = useState(null);
-  const [detailViewType, setDetailViewType] = useState('');
-  const [manualTaxData, setManualTaxData] = useState({
-    income: '',
-    withholdings: '',
-    deductions: '',
-    tax_year: new Date().getFullYear() - 1,
-    document_type: 'w2'
-  });
-
-  // Load user profile and initial data
-  useEffect(() => {
-    const loadUserAndData = async () => {
-      setUserLoading(true);
-      setError(null);
-      
-      try {
-        // Check if we have a valid token
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.log('No token found, redirecting to login');
-          window.location.href = '/login';
-          return;
-        }
-
-        console.log('Loading user profile and data...');
-        
-        // Load user profile first
-        try {
-          const userProfile = await apiService.getUserProfile();
-          console.log('User profile loaded:', userProfile);
-          setUser(userProfile);
-          
-          // Store user data in localStorage for persistence
-          localStorage.setItem('user', JSON.stringify(userProfile));
-        } catch (userError) {
-          console.error('Failed to load user profile:', userError);
-          
-          // Try to get user from localStorage as fallback
-          const storedUser = localStorage.getItem('user');
-          if (storedUser) {
-            console.log('Using stored user data as fallback');
-            setUser(JSON.parse(storedUser));
-          } else {
-            // If token is invalid, redirect to login
-            if (userError.message?.includes('401') || userError.message?.includes('unauthorized')) {
-              console.log('Invalid token, redirecting to login');
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              window.location.href = '/login';
-              return;
-            }
-            
-            // Use fallback user data
-            setUser({ full_name: 'User', email: 'user@example.com', id: 'unknown' });
-          }
-        }
-
-        // Load tax returns and documents in parallel
-        console.log('Loading tax returns and documents...');
-        setLoading(true);
-        
-        const [taxReturnsData, documentsData] = await Promise.all([
-          apiService.getTaxReturns().catch(err => {
-            console.error('Failed to load tax returns:', err);
-            return []; // Return empty array on error
-          }),
-          apiService.getDocuments().catch(err => {
-            console.error('Failed to load documents:', err);
-            return []; // Return empty array on error
-          })
-        ]);
-        
-        console.log('Tax returns loaded:', taxReturnsData?.length || 0);
-        console.log('Documents loaded:', documentsData?.length || 0);
-        
-        setTaxReturns(taxReturnsData || []);
-        setDocuments(documentsData || []);
-        
-      } catch (err) {
-        console.error('Critical error loading dashboard data:', err);
-        setError('Failed to load dashboard data. Please try refreshing the page.');
-        
-        // Try to use any cached data
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        } else {
-          setUser({ full_name: 'User', email: 'user@example.com', id: 'unknown' });
-        }
-      } finally {
-        setLoading(false);
-        setUserLoading(false);
-      }
-    };
-
-    loadUserAndData();
-  }, []);
-
-  // Helper function to safely convert to number and format
-  const safeToFixed = (value, decimals = 2) => {
-    const num = parseFloat(value);
-    return isNaN(num) ? '0.00' : num.toFixed(decimals);
-  };
-
-  // Helper function to safely convert to number
-  const safeToNumber = (value) => {
-    const num = parseFloat(value);
-    return isNaN(num) ? 0 : num;
-  };
-
-  const handleUploadDocument = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    setProcessingDocument(true);
-    setError(null);
-    
-    try {
-      console.log('Uploading document:', file.name);
-      
-      // Upload using API service
-      const uploadedDoc = await apiService.uploadDocument(file);
-      console.log('Document uploaded successfully:', uploadedDoc);
-      
-      // Add to local state
-      setDocuments(prev => [uploadedDoc, ...prev]);
-      setProcessingDocument(false);
-      setShowUploadForm(false);
-      
-      // AI Processing Logic (simulated)
-      if (autoFilingEnabled) {
-        setTimeout(() => {
-          const extractedData = simulateAIExtraction(uploadedDoc);
-          
-          if (extractedData) {
-            const confirmMessage = `AI successfully extracted tax data from ${uploadedDoc.filename}!\n\nDetected:\n• Income: ${extractedData.income.toLocaleString()}\n• Withholdings: ${extractedData.withholdings.toLocaleString()}\n• Tax Year: ${extractedData.tax_year}\n\nWould you like to create a tax return with this data?`;
-            
-            if (window.confirm(confirmMessage)) {
-              createTaxReturnFromData(extractedData, uploadedDoc);
-            }
-          }
-        }, 1500);
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      setError(`Failed to upload document: ${error.message}`);
-      setProcessingDocument(false);
-    }
-  };
-
-  const simulateAIExtraction = (document) => {
-    const filename = document.filename.toLowerCase();
-    
-    if (filename.includes('w2') || filename.includes('wage')) {
-      return {
-        income: Math.floor(Math.random() * 50000) + 40000,
-        withholdings: Math.floor(Math.random() * 8000) + 5000,
-        deductions: 12550,
-        tax_year: 2024,
-        document_type: 'w2'
-      };
-    } else if (filename.includes('1099')) {
-      return {
-        income: Math.floor(Math.random() * 30000) + 10000,
-        withholdings: Math.floor(Math.random() * 3000) + 1000,
-        deductions: 12550,
-        tax_year: 2024,
-        document_type: '1099'
-      };
-    } else {
-      return {
-        income: Math.floor(Math.random() * 40000) + 30000,
-        withholdings: Math.floor(Math.random() * 6000) + 3000,
-        deductions: 12550,
-        tax_year: 2024,
-        document_type: 'other'
-      };
-    }
-  };
-
-  const createTaxReturnFromData = async (extractedData, sourceDocument) => {
-    try {
-      console.log('Creating tax return from extracted data:', extractedData);
-      
-      const existingReturn = taxReturns.find(tr => tr.tax_year === extractedData.tax_year);
-      
-      if (existingReturn) {
-        // Update existing return
-        const updatedReturn = {
-          ...existingReturn,
-          income: safeToNumber(existingReturn.income) + safeToNumber(extractedData.income),
-          withholdings: safeToNumber(existingReturn.withholdings) + safeToNumber(extractedData.withholdings),
-          deductions: Math.max(safeToNumber(existingReturn.deductions), safeToNumber(extractedData.deductions)),
-          source_document: `${existingReturn.source_document}, ${sourceDocument.filename}`
-        };
-        
-        // Update using API service
-        const savedReturn = await apiService.updateTaxReturn(existingReturn.id, updatedReturn);
-        console.log('Tax return updated:', savedReturn);
-        
-        // Update local state
-        setTaxReturns(prev => prev.map(tr => 
-          tr.id === existingReturn.id ? savedReturn : tr
-        ));
-        
-        const alertMessage = `Tax return for ${extractedData.tax_year} updated!\n\nAdded:\n• Income: +${extractedData.income.toLocaleString()}\n• Withholdings: +${extractedData.withholdings.toLocaleString()}\n\nTotal Income: ${updatedReturn.income.toLocaleString()}`;
-        
-        alert(alertMessage);
-      } else {
-        // Create new return using API service
-        const newTaxReturnData = {
-          tax_year: extractedData.tax_year,
-          income: safeToNumber(extractedData.income),
-          withholdings: safeToNumber(extractedData.withholdings),
-          deductions: safeToNumber(extractedData.deductions),
-          filing_status_info: {
-            filing_status: 'single'
-          }
-        };
-        
-        const savedReturn = await apiService.createTaxReturn(newTaxReturnData);
-        console.log('New tax return created:', savedReturn);
-        
-        // Update local state
-        setTaxReturns(prev => [savedReturn, ...prev]);
-        
-        const result = savedReturn.refund_amount > 0 
-          ? `Refund: ${savedReturn.refund_amount.toFixed(2)}`
-          : `Owed: ${savedReturn.amount_owed.toFixed(2)}`;
-        
-        const alertMessage = `New tax return created for ${extractedData.tax_year}!\n\nSummary:\n• Income: ${extractedData.income.toLocaleString()}\n• Withholdings: ${extractedData.withholdings.toLocaleString()}\n• ${result}`;
-        
-        alert(alertMessage);
-      }
-    } catch (error) {
-      console.error('Error creating/updating tax return:', error);
-      setError(`Failed to save tax return: ${error.message}`);
-    }
-  };
-
-  const handleManualTaxEntry = async (e) => {
-    e.preventDefault();
-    setError(null);
-    
-    try {
-      console.log('Creating manual tax return:', manualTaxData);
-      
-      const newTaxReturnData = {
-        tax_year: parseInt(manualTaxData.tax_year),
-        income: safeToNumber(manualTaxData.income),
-        withholdings: safeToNumber(manualTaxData.withholdings),
-        deductions: safeToNumber(manualTaxData.deductions) || null,
-        filing_status_info: {
-          filing_status: 'single'
-        }
-      };
-      
-      // Create using API service
-      const savedReturn = await apiService.createTaxReturn(newTaxReturnData);
-      console.log('Manual tax return created:', savedReturn);
-      
-      // Update local state
-      setTaxReturns(prev => [savedReturn, ...prev]);
-      setShowManualEntry(false);
-      setCurrentDocument(null);
-      setManualTaxData({
-        income: '',
-        withholdings: '',
-        deductions: '',
-        tax_year: new Date().getFullYear() - 1,
-        document_type: 'w2'
-      });
-      
-      const result = savedReturn.refund_amount > 0 
-        ? `Refund: ${savedReturn.refund_amount.toFixed(2)}`
-        : `Owed: ${savedReturn.amount_owed.toFixed(2)}`;
-      
-      alert(`Tax return created successfully!\n\n${result}`);
-    } catch (error) {
-      console.error('Error saving manual tax return:', error);
-      setError(`Failed to save tax return: ${error.message}`);
-    }
-  };
-
-  const handleDeleteDocument = async (documentId) => {
-    if (window.confirm('Are you sure you want to delete this document?')) {
-      try {
-        console.log('Deleting document:', documentId);
-        
-        // Delete using API service
-        await apiService.deleteDocument(documentId);
-        
-        // Update local state
-        setDocuments(prev => prev.filter(doc => doc.id !== documentId));
-        
-        alert('Document deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting document:', error);
-        setError(`Failed to delete document: ${error.message}`);
-      }
-    }
-  };
-
-  const handleProcessDocument = (document) => {
-    setCurrentDocument(document);
-    setShowManualEntry(true);
-  };
-
-  // Show loading screen if user data is still loading
-  if (userLoading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #581c87 50%, #1e1b4b 75%, #0f172a 100%)',
-        color: 'white',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(6, 182, 212, 0.9))',
-          padding: '3rem',
-          borderRadius: '2rem',
-          textAlign: 'center',
-          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
-        }}>
-          <div style={{
-            width: '4rem',
-            height: '4rem',
-            border: '4px solid rgba(255, 255, 255, 0.3)',
-            borderTop: '4px solid white',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 2rem'
-          }}></div>
-          <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>
-            🚀 Loading TaxBox.AI
-          </h2>
-          <p style={{ fontSize: '1.25rem', color: '#e2e8f0' }}>
-            Setting up your personalized dashboard...
-          </p>
-          <p style={{ fontSize: '1rem', color: '#cbd5e1', marginTop: '1rem' }}>
-            Fetching your tax returns, documents, and profile
-          </p>
-        </div>
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `
-        }} />
-      </div>
-    );
-  }
-
-  const stats = [
-    { title: 'Total Returns', value: taxReturns.length, icon: '📄' },
-    { 
-      title: 'Total Refunds', 
-      value: `$${taxReturns.reduce((sum, tr) => sum + safeToNumber(tr.refund_amount), 0).toLocaleString()}`, 
-      icon: '💰' 
-    },
-    { title: 'AI Generated', value: taxReturns.filter(tr => tr.auto_generated).length, icon: '🤖' },
-    { title: 'Documents', value: documents.length, icon: '📤' }
-  ];
-
-  return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #581c87 50%, #1e1b4b 75%, #0f172a 100%)',
-      color: 'white',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-    }}>
-      {/* Loading State */}
-      {loading && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000
-        }}>
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(6, 182, 212, 0.9))',
-            padding: '2rem',
-            borderRadius: '1rem',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              width: '3rem',
-              height: '3rem',
-              border: '4px solid rgba(255, 255, 255, 0.3)',
-              borderTop: '4px solid white',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              margin: '0 auto 1rem'
-            }}></div>
-            <p style={{ fontSize: '1.125rem', fontWeight: '600' }}>Loading your tax data...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Error State */}
-      {error && (
-        <div style={{
-          background: 'rgba(239, 68, 68, 0.1)',
-          border: '2px solid rgba(239, 68, 68, 0.3)',
-          borderRadius: '1rem',
-          padding: '1rem',
-          margin: '1rem',
-          color: '#fca5a5',
-          textAlign: 'center'
-        }}>
-          <p style={{ fontWeight: '600' }}>⚠️ {error}</p>
-          <button 
-            onClick={() => setError(null)} 
-            style={{
-              background: 'rgba(239, 68, 68, 0.2)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#fca5a5',
-              borderRadius: '0.5rem',
-              padding: '0.5rem 1rem',
-              marginTop: '0.5rem',
-              cursor: 'pointer'
-            }}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 1rem' }}>
-        
-        {/* Header */}
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(6, 182, 212, 0.3))',
-          backdropFilter: 'blur(20px)',
-          border: '2px solid rgba(139, 92, 246, 0.5)',
-          borderRadius: '2rem',
-          padding: '2.5rem',
-          marginBottom: '3rem',
-          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
-          textAlign: 'center'
-        }}>
-          <h1 style={{
-            fontSize: 'clamp(3rem, 8vw, 6rem)',
-            fontWeight: '900',
-            background: 'linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899, #f59e0b)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            marginBottom: '1rem',
-            textShadow: '0 0 50px rgba(139, 92, 246, 0.5)'
-          }}>
-            🚀 TaxBox.AI Dashboard
-          </h1>
-          <p style={{
-            fontSize: 'clamp(1.25rem, 3vw, 2rem)',
-            color: '#e2e8f0',
-            marginBottom: '2rem',
-            fontWeight: '600'
-          }}>
-            Welcome {user?.full_name || 'User'}! ✨ Your AI-Powered Tax Filing Experience
-          </p>
-          
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: '1rem',
-            padding: '1rem 2rem',
-            margin: '0 auto',
-            maxWidth: 'fit-content',
-            gap: '1rem',
-            flexWrap: 'wrap'
-          }}>
-            <span style={{ fontSize: '2rem' }}>✨</span>
-            <span style={{ fontWeight: '600', fontSize: '1.25rem' }}>Smart Filing</span>
-            <button
-              onClick={() => setAutoFilingEnabled(!autoFilingEnabled)}
-              style={{
-                width: '4rem',
-                height: '2rem',
-                borderRadius: '1rem',
-                border: 'none',
-                background: autoFilingEnabled ? 'linear-gradient(135deg, #8b5cf6, #06b6d4)' : '#6b7280',
-                position: 'relative',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease'
-              }}
-            >
-              <div style={{
-                width: '1.75rem',
-                height: '1.75rem',
-                backgroundColor: 'white',
-                borderRadius: '50%',
-                position: 'absolute',
-                top: '0.125rem',
-                left: autoFilingEnabled ? '2.125rem' : '0.125rem',
-                transition: 'all 0.3s ease',
-                boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-              }}></div>
-            </button>
-            <button style={{
-              background: 'rgba(239, 68, 68, 0.2)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#fca5a5',
-              borderRadius: '1rem',
-              padding: '0.75rem 1.5rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              fontSize: '0.875rem'
-            }}
-            onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-        </div>
-
-        {/* Processing Indicator */}
-        {processingDocument && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2))',
-            backdropFilter: 'blur(20px)',
-            border: '2px solid rgba(139, 92, 246, 0.4)',
-            borderRadius: '2rem',
-            padding: '2.5rem',
-            marginBottom: '2rem',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={{
-                width: '3rem',
-                height: '3rem',
-                border: '4px solid rgba(139, 92, 246, 0.3)',
-                borderTop: '4px solid #8b5cf6',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }}></div>
-              <div>
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#c084fc', marginBottom: '0.5rem' }}>
-                  🤖 AI Processing Document
-                </h3>
-                <p style={{ color: '#e2e8f0', fontSize: '1.125rem' }}>
-                  Advanced neural networks analyzing your tax data...
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Manual Entry Form */}
-        {showManualEntry && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1))',
-            backdropFilter: 'blur(20px)',
-            border: '2px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: '2rem',
-            padding: '2.5rem',
-            marginBottom: '2rem',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-              <div style={{
-                width: '4rem',
-                height: '4rem',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                borderRadius: '1rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '2rem'
-              }}>
-                📝
-              </div>
-              <div>
-                <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                  Smart Tax Entry
-                </h2>
-                <p style={{ color: '#e2e8f0', fontSize: '1.125rem' }}>
-                  {currentDocument ? `Processing: ${currentDocument.filename}` : 'Manual tax information entry'}
-                </p>
-              </div>
-            </div>
-            
-            <form onSubmit={handleManualTaxEntry}>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                gap: '2rem',
-                marginBottom: '2rem'
-              }}>
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    color: '#e2e8f0',
-                    marginBottom: '0.5rem'
-                  }}>
-                    Tax Year
-                  </label>
-                  <select
-                    value={manualTaxData.tax_year}
-                    onChange={(e) => setManualTaxData(prev => ({...prev, tax_year: parseInt(e.target.value)}))}
+onChange={(e) => setManualTaxData(prev => ({...prev, deductions: e.target.value}))}
                     style={{
                       background: 'rgba(255, 255, 255, 0.1)',
                       border: '2px solid rgba(255, 255, 255, 0.2)',
@@ -1687,7 +1042,655 @@ function Dashboard() {
   );
 }
 
-export default Dashboard;
+export default Dashboard;import React, { useState, useEffect } from 'react';
+import { apiService } from '../services/api';
+
+function Dashboard() {
+  // User state - now loads real user data
+  const [user, setUser] = useState(null);
+  const [userLoading, setUserLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  
+  // Logout function that navigates back to login
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      // Clear authentication data
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.clear();
+      
+      // Navigate back to login page
+      window.location.href = '/login';
+    }
+  };
+  
+  const [taxReturns, setTaxReturns] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [currentDocument, setCurrentDocument] = useState(null);
+  const [processingDocument, setProcessingDocument] = useState(false);
+  const [autoFilingEnabled, setAutoFilingEnabled] = useState(true);
+  const [showDetailView, setShowDetailView] = useState(false);
+  const [detailViewData, setDetailViewData] = useState(null);
+  const [detailViewType, setDetailViewType] = useState('');
+  const [manualTaxData, setManualTaxData] = useState({
+    income: '',
+    withholdings: '',
+    deductions: '',
+    tax_year: new Date().getFullYear() - 1,
+    document_type: 'w2'
+  });
+
+  // Load user profile and initial data
+  useEffect(() => {
+    const loadUserAndData = async () => {
+      setUserLoading(true);
+      setError(null);
+      
+      try {
+        // Check if we have a valid token
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.log('No token found, redirecting to login');
+          window.location.href = '/login';
+          return;
+        }
+
+        console.log('Loading user profile and data...');
+        
+        // Load user profile first
+        try {
+          const userProfile = await apiService.getUserProfile();
+          console.log('User profile loaded:', userProfile);
+          setUser(userProfile);
+          
+          // Store user data in localStorage for persistence
+          localStorage.setItem('user', JSON.stringify(userProfile));
+        } catch (userError) {
+          console.error('Failed to load user profile:', userError);
+          
+          // Try to get user from localStorage as fallback
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            console.log('Using stored user data as fallback');
+            setUser(JSON.parse(storedUser));
+          } else {
+            // If token is invalid, redirect to login
+            if (userError.message?.includes('401') || userError.message?.includes('unauthorized')) {
+              console.log('Invalid token, redirecting to login');
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              window.location.href = '/login';
+              return;
+            }
+            
+            // Use fallback user data
+            setUser({ full_name: 'User', email: 'user@example.com', id: 'unknown' });
+          }
+        }
+
+        // Load tax returns and documents in parallel
+        console.log('Loading tax returns and documents...');
+        setLoading(true);
+        
+        const [taxReturnsData, documentsData] = await Promise.all([
+          apiService.getTaxReturns().catch(err => {
+            console.error('Failed to load tax returns:', err);
+            return []; // Return empty array on error
+          }),
+          apiService.getDocuments().catch(err => {
+            console.error('Failed to load documents:', err);
+            return []; // Return empty array on error
+          })
+        ]);
+        
+        console.log('Tax returns loaded:', taxReturnsData?.length || 0);
+        console.log('Documents loaded:', documentsData?.length || 0);
+        
+        setTaxReturns(taxReturnsData || []);
+        setDocuments(documentsData || []);
+        
+      } catch (err) {
+        console.error('Critical error loading dashboard data:', err);
+        setError('Failed to load dashboard data. Please try refreshing the page.');
+        
+        // Try to use any cached data
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          setUser({ full_name: 'User', email: 'user@example.com', id: 'unknown' });
+        }
+      } finally {
+        setLoading(false);
+        setUserLoading(false);
+      }
+    };
+
+    loadUserAndData();
+  }, []);
+
+  // Helper function to safely convert to number and format
+  const safeToFixed = (value, decimals = 2) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? '0.00' : num.toFixed(decimals);
+  };
+
+  // Helper function to safely convert to number
+  const safeToNumber = (value) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const handleUploadDocument = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    setProcessingDocument(true);
+    setError(null);
+    
+    try {
+      console.log('Uploading document:', file.name);
+      
+      // Upload using API service
+      const uploadedDoc = await apiService.uploadDocument(file);
+      console.log('Document uploaded successfully:', uploadedDoc);
+      
+      // Add to local state
+      setDocuments(prev => [uploadedDoc, ...prev]);
+      setProcessingDocument(false);
+      setShowUploadForm(false);
+      
+      // AI Processing Logic (simulated)
+      if (autoFilingEnabled) {
+        setTimeout(() => {
+          const extractedData = simulateAIExtraction(uploadedDoc);
+          
+          if (extractedData) {
+            const confirmMessage = `AI successfully extracted tax data from ${uploadedDoc.filename}!\n\nDetected:\n• Income: ${extractedData.income.toLocaleString()}\n• Withholdings: ${extractedData.withholdings.toLocaleString()}\n• Tax Year: ${extractedData.tax_year}\n\nWould you like to create a tax return with this data?`;
+            
+            if (window.confirm(confirmMessage)) {
+              createTaxReturnFromData(extractedData, uploadedDoc);
+            }
+          }
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      setError(`Failed to upload document: ${error.message}`);
+      setProcessingDocument(false);
+    }
+  };
+
+  const simulateAIExtraction = (document) => {
+    const filename = document.filename.toLowerCase();
+    
+    if (filename.includes('w2') || filename.includes('wage')) {
+      return {
+        income: Math.floor(Math.random() * 50000) + 40000,
+        withholdings: Math.floor(Math.random() * 8000) + 5000,
+        deductions: 12550,
+        tax_year: 2024,
+        document_type: 'w2'
+      };
+    } else if (filename.includes('1099')) {
+      return {
+        income: Math.floor(Math.random() * 30000) + 10000,
+        withholdings: Math.floor(Math.random() * 3000) + 1000,
+        deductions: 12550,
+        tax_year: 2024,
+        document_type: '1099'
+      };
+    } else {
+      return {
+        income: Math.floor(Math.random() * 40000) + 30000,
+        withholdings: Math.floor(Math.random() * 6000) + 3000,
+        deductions: 12550,
+        tax_year: 2024,
+        document_type: 'other'
+      };
+    }
+  };
+
+  const createTaxReturnFromData = async (extractedData, sourceDocument) => {
+    try {
+      console.log('Creating tax return from extracted data:', extractedData);
+      
+      const existingReturn = taxReturns.find(tr => tr.tax_year === extractedData.tax_year);
+      
+      if (existingReturn) {
+        // Update existing return
+        const updatedReturn = {
+          ...existingReturn,
+          income: safeToNumber(existingReturn.income) + safeToNumber(extractedData.income),
+          withholdings: safeToNumber(existingReturn.withholdings) + safeToNumber(extractedData.withholdings),
+          deductions: Math.max(safeToNumber(existingReturn.deductions), safeToNumber(extractedData.deductions)),
+          source_document: `${existingReturn.source_document}, ${sourceDocument.filename}`
+        };
+        
+        // Update using API service
+        const savedReturn = await apiService.updateTaxReturn(existingReturn.id, updatedReturn);
+        console.log('Tax return updated:', savedReturn);
+        
+        // Update local state
+        setTaxReturns(prev => prev.map(tr => 
+          tr.id === existingReturn.id ? savedReturn : tr
+        ));
+        
+        const alertMessage = `Tax return for ${extractedData.tax_year} updated!\n\nAdded:\n• Income: +${extractedData.income.toLocaleString()}\n• Withholdings: +${extractedData.withholdings.toLocaleString()}\n\nTotal Income: ${updatedReturn.income.toLocaleString()}`;
+        
+        alert(alertMessage);
+      } else {
+        // Create new return using API service
+        const newTaxReturnData = {
+          tax_year: extractedData.tax_year,
+          income: safeToNumber(extractedData.income),
+          withholdings: safeToNumber(extractedData.withholdings),
+          deductions: safeToNumber(extractedData.deductions),
+          filing_status_info: {
+            filing_status: 'single'
+          }
+        };
+        
+        const savedReturn = await apiService.createTaxReturn(newTaxReturnData);
+        console.log('New tax return created:', savedReturn);
+        
+        // Update local state
+        setTaxReturns(prev => [savedReturn, ...prev]);
+        
+        const result = savedReturn.refund_amount > 0 
+          ? `Refund: ${savedReturn.refund_amount.toFixed(2)}`
+          : `Owed: ${savedReturn.amount_owed.toFixed(2)}`;
+        
+        const alertMessage = `New tax return created for ${extractedData.tax_year}!\n\nSummary:\n• Income: ${extractedData.income.toLocaleString()}\n• Withholdings: ${extractedData.withholdings.toLocaleString()}\n• ${result}`;
+        
+        alert(alertMessage);
+      }
+    } catch (error) {
+      console.error('Error creating/updating tax return:', error);
+      setError(`Failed to save tax return: ${error.message}`);
+    }
+  };
+
+  const handleManualTaxEntry = async (e) => {
+    e.preventDefault();
+    setError(null);
+    
+    try {
+      console.log('Creating manual tax return:', manualTaxData);
+      
+      const newTaxReturnData = {
+        tax_year: parseInt(manualTaxData.tax_year),
+        income: safeToNumber(manualTaxData.income),
+        withholdings: safeToNumber(manualTaxData.withholdings),
+        deductions: safeToNumber(manualTaxData.deductions) || null,
+        filing_status_info: {
+          filing_status: 'single'
+        }
+      };
+      
+      // Create using API service
+      const savedReturn = await apiService.createTaxReturn(newTaxReturnData);
+      console.log('Manual tax return created:', savedReturn);
+      
+      // Update local state
+      setTaxReturns(prev => [savedReturn, ...prev]);
+      setShowManualEntry(false);
+      setCurrentDocument(null);
+      setManualTaxData({
+        income: '',
+        withholdings: '',
+        deductions: '',
+        tax_year: new Date().getFullYear() - 1,
+        document_type: 'w2'
+      });
+      
+      const result = savedReturn.refund_amount > 0 
+        ? `Refund: ${savedReturn.refund_amount.toFixed(2)}`
+        : `Owed: ${savedReturn.amount_owed.toFixed(2)}`;
+      
+      alert(`Tax return created successfully!\n\n${result}`);
+    } catch (error) {
+      console.error('Error saving manual tax return:', error);
+      setError(`Failed to save tax return: ${error.message}`);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId) => {
+    if (window.confirm('Are you sure you want to delete this document?')) {
+      try {
+        console.log('Deleting document:', documentId);
+        
+        // Delete using API service
+        await apiService.deleteDocument(documentId);
+        
+        // Update local state
+        setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+        
+        alert('Document deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting document:', error);
+        setError(`Failed to delete document: ${error.message}`);
+      }
+    }
+  };
+
+  const handleProcessDocument = (document) => {
+    setCurrentDocument(document);
+    setShowManualEntry(true);
+  };
+
+  // Show loading screen if user data is still loading
+  if (userLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #581c87 50%, #1e1b4b 75%, #0f172a 100%)',
+        color: 'white',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(6, 182, 212, 0.9))',
+          padding: '3rem',
+          borderRadius: '2rem',
+          textAlign: 'center',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
+        }}>
+          <div style={{
+            width: '4rem',
+            height: '4rem',
+            border: '4px solid rgba(255, 255, 255, 0.3)',
+            borderTop: '4px solid white',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 2rem'
+          }}></div>
+          <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+            🚀 Loading TaxBox.AI
+          </h2>
+          <p style={{ fontSize: '1.25rem', color: '#e2e8f0' }}>
+            Setting up your personalized dashboard...
+          </p>
+          <p style={{ fontSize: '1rem', color: '#cbd5e1', marginTop: '1rem' }}>
+            Fetching your tax returns, documents, and profile
+          </p>
+        </div>
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `
+        }} />
+      </div>
+    );
+  }
+
+  const stats = [
+    { title: 'Total Returns', value: taxReturns.length, icon: '📄' },
+    { 
+      title: 'Total Refunds', 
+      value: `$${taxReturns.reduce((sum, tr) => sum + safeToNumber(tr.refund_amount), 0).toLocaleString()}`, 
+      icon: '💰' 
+    },
+    { title: 'AI Generated', value: taxReturns.filter(tr => tr.auto_generated).length, icon: '🤖' },
+    { title: 'Documents', value: documents.length, icon: '📤' }
+  ];
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #581c87 50%, #1e1b4b 75%, #0f172a 100%)',
+      color: 'white',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+    }}>
+      {/* Loading State */}
+      {loading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(6, 182, 212, 0.9))',
+            padding: '2rem',
+            borderRadius: '1rem',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '3rem',
+              height: '3rem',
+              border: '4px solid rgba(255, 255, 255, 0.3)',
+              borderTop: '4px solid white',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 1rem'
+            }}></div>
+            <p style={{ fontSize: '1.125rem', fontWeight: '600' }}>Loading your tax data...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          border: '2px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '1rem',
+          padding: '1rem',
+          margin: '1rem',
+          color: '#fca5a5',
+          textAlign: 'center'
+        }}>
+          <p style={{ fontWeight: '600' }}>⚠️ {error}</p>
+          <button 
+            onClick={() => setError(null)} 
+            style={{
+              background: 'rgba(239, 68, 68, 0.2)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#fca5a5',
+              borderRadius: '0.5rem',
+              padding: '0.5rem 1rem',
+              marginTop: '0.5rem',
+              cursor: 'pointer'
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem 1rem' }}>
+        
+        {/* Header */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(6, 182, 212, 0.3))',
+          backdropFilter: 'blur(20px)',
+          border: '2px solid rgba(139, 92, 246, 0.5)',
+          borderRadius: '2rem',
+          padding: '2.5rem',
+          marginBottom: '3rem',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+          textAlign: 'center'
+        }}>
+          <h1 style={{
+            fontSize: 'clamp(3rem, 8vw, 6rem)',
+            fontWeight: '900',
+            background: 'linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899, #f59e0b)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            marginBottom: '1rem',
+            textShadow: '0 0 50px rgba(139, 92, 246, 0.5)'
+          }}>
+            🚀 TaxBox.AI Dashboard
+          </h1>
+          <p style={{
+            fontSize: 'clamp(1.25rem, 3vw, 2rem)',
+            color: '#e2e8f0',
+            marginBottom: '2rem',
+            fontWeight: '600'
+          }}>
+            Welcome {user?.full_name || 'User'}! ✨ Your AI-Powered Tax Filing Experience
+          </p>
+          
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: '1rem',
+            padding: '1rem 2rem',
+            margin: '0 auto',
+            maxWidth: 'fit-content',
+            gap: '1rem',
+            flexWrap: 'wrap'
+          }}>
+            <span style={{ fontSize: '2rem' }}>✨</span>
+            <span style={{ fontWeight: '600', fontSize: '1.25rem' }}>Smart Filing</span>
+            <button
+              onClick={() => setAutoFilingEnabled(!autoFilingEnabled)}
+              style={{
+                width: '4rem',
+                height: '2rem',
+                borderRadius: '1rem',
+                border: 'none',
+                background: autoFilingEnabled ? 'linear-gradient(135deg, #8b5cf6, #06b6d4)' : '#6b7280',
+                position: 'relative',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <div style={{
+                width: '1.75rem',
+                height: '1.75rem',
+                backgroundColor: 'white',
+                borderRadius: '50%',
+                position: 'absolute',
+                top: '0.125rem',
+                left: autoFilingEnabled ? '2.125rem' : '0.125rem',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+              }}></div>
+            </button>
+            <button style={{
+              background: 'rgba(239, 68, 68, 0.2)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#fca5a5',
+              borderRadius: '1rem',
+              padding: '0.75rem 1.5rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              fontSize: '0.875rem'
+            }}
+            onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+        </div>
+
+        {/* Processing Indicator */}
+        {processingDocument && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2))',
+            backdropFilter: 'blur(20px)',
+            border: '2px solid rgba(139, 92, 246, 0.4)',
+            borderRadius: '2rem',
+            padding: '2.5rem',
+            marginBottom: '2rem',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{
+                width: '3rem',
+                height: '3rem',
+                border: '4px solid rgba(139, 92, 246, 0.3)',
+                borderTop: '4px solid #8b5cf6',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}></div>
+              <div>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#c084fc', marginBottom: '0.5rem' }}>
+                  🤖 AI Processing Document
+                </h3>
+                <p style={{ color: '#e2e8f0', fontSize: '1.125rem' }}>
+                  Advanced neural networks analyzing your tax data...
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Manual Entry Form */}
+        {showManualEntry && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1))',
+            backdropFilter: 'blur(20px)',
+            border: '2px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: '2rem',
+            padding: '2.5rem',
+            marginBottom: '2rem',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+              <div style={{
+                width: '4rem',
+                height: '4rem',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                borderRadius: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '2rem'
+              }}>
+                📝
+              </div>
+              <div>
+                <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                  Smart Tax Entry
+                </h2>
+                <p style={{ color: '#e2e8f0', fontSize: '1.125rem' }}>
+                  {currentDocument ? `Processing: ${currentDocument.filename}` : 'Manual tax information entry'}
+                </p>
+              </div>
+            </div>
+            
+            <form onSubmit={handleManualTaxEntry}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                gap: '2rem',
+                marginBottom: '2rem'
+              }}>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    color: '#e2e8f0',
+                    marginBottom: '0.5rem'
+                  }}>
+                    Tax Year
+                  </label>
+                  <select
+                    value={manualTaxData.tax_year}
+                    onChange={(e) => setManualTaxData(prev => ({...prev, tax_year: parseInt(e.target.value)}))}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '2px solid rgba(255, 255, 255, 0.2)',
                       borderRadius: '0.75rem',
                       padding: '0.75rem 1rem',
                       color: 'white',
@@ -1732,35 +1735,35 @@ export default Dashboard;
                 </div>
                 
                 <div>
-  <label style={{
-    display: 'block',
-    fontSize: '1rem',
-    fontWeight: '600',
-    color: '#e2e8f0',
-    marginBottom: '0.5rem'
-  }}>
-    🧾 Federal Tax Withheld ($)
-  </label>
-  <input
-    type="number"
-    step="0.01"
-    value={manualTaxData.withholdings}
-    onChange={(e) => setManualTaxData(prev => ({...prev, withholdings: e.target.value}))}
-    style={{
-      background: 'rgba(255, 255, 255, 0.1)',
-      border: '2px solid rgba(255, 255, 255, 0.2)',
-      borderRadius: '0.75rem',
-      padding: '0.75rem 1rem',
-      color: 'white',
-      fontSize: '0.875rem',
-      width: '100%',
-      transition: 'all 0.3s ease'
-    }}
-    placeholder="8,500.00"
-  />
-</div>
-
-<div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    color: '#e2e8f0',
+                    marginBottom: '0.5rem'
+                  }}>
+                    🧾 Federal Tax Withheld ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={manualTaxData.withholdings}
+                    onChange={(e) => setManualTaxData(prev => ({...prev, withholdings: e.target.value}))}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '2px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '0.75rem',
+                      padding: '0.75rem 1rem',
+                      color: 'white',
+                      fontSize: '0.875rem',
+                      width: '100%',
+                      transition: 'all 0.3s ease'
+                    }}
+                    placeholder="8,500.00"
+                  />
+                </div>
+                
+               <div>
   <label style={{
     display: 'block',
     fontSize: '1rem',
@@ -2486,29 +2489,29 @@ export default Dashboard;
                 <div 
                   key={taxReturn.id} 
                   style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                   border: '2px solid rgba(255, 255, 255, 0.1)',
-                   borderRadius: '1.5rem',
-                   padding: '2rem',
-                   transition: 'all 0.3s ease'
-                 }}
-                 onMouseEnter={(e) => {
-                   e.target.style.borderColor = 'rgba(16, 185, 129, 0.5)';
-                   e.target.style.transform = 'scale(1.02)';
-                 }}
-                 onMouseLeave={(e) => {
-                   e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                   e.target.style.transform = 'scale(1)';
-                 }}
-               >
-                 <div style={{
-                   display: 'flex',
-                   justifyContent: 'space-between',
-                   alignItems: 'flex-start',
-                   marginBottom: '2rem'
-                 }}>
-                   <div>
-                     <h3 style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '2px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '1.5rem',
+                    padding: '2rem',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+                    e.target.style.transform = 'scale(1.02)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    e.target.style.transform = 'scale(1)';
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '2rem'
+                  }}>
+                    <div>
+                    <h3 style={{
                        fontSize: '1.75rem',
                        fontWeight: 'bold',
                        marginBottom: '0.5rem',
