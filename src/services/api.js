@@ -1,7 +1,8 @@
-// src/services/api.js - FIXED VERSION
+// src/services/api.js - CORRECTED VERSION
 import axios from 'axios';
 
-// FIXED: Correct API URL matching your Railway deployment
+// FIXED: Correct backend URL without /api for auth endpoints
+const BACKEND_URL = 'https://tax-box-production.up.railway.app';
 const API_BASE_URL = 'https://tax-box-production.up.railway.app/api';
 
 const api = axios.create({
@@ -41,14 +42,14 @@ api.interceptors.response.use(
 
 // API service methods
 export const apiService = {
-  // Auth methods
+  // Auth methods - these use the main backend URL, not /api
   login: async (email, password) => {
     try {
       const formData = new FormData();
       formData.append('username', email);
       formData.append('password', password);
       
-      const response = await axios.post(`${API_BASE_URL.replace('/api', '')}/token`, formData, {
+      const response = await axios.post(`${BACKEND_URL}/token`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -65,7 +66,7 @@ export const apiService = {
 
   register: async (userData) => {
     try {
-      const response = await axios.post(`${API_BASE_URL.replace('/api', '')}/register`, userData);
+      const response = await axios.post(`${BACKEND_URL}/register`, userData);
       return response.data;
     } catch (error) {
       console.error('Registration error:', error);
@@ -73,7 +74,7 @@ export const apiService = {
     }
   },
 
-  // User endpoints
+  // User endpoints - these use /api
   getProfile: async () => {
     try {
       const response = await api.get('/users/me');
@@ -219,7 +220,7 @@ export const apiService = {
   // Health check
   healthCheck: async () => {
     try {
-      const response = await api.get('/');
+      const response = await axios.get(`${BACKEND_URL}/`);
       return response.data;
     } catch (error) {
       console.error('Health check failed:', error);
