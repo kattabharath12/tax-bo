@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiService } from '../services/api';  // ← Change this import
+import { apiService } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -26,11 +26,12 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = async () => {
     try {
-      const response = await apiService.getProfile();  // ← Use apiService method
+      const response = await apiService.getProfile();
       setUser(response);
     } catch (error) {
       console.error('Error fetching user:', error);
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
     } finally {
       setLoading(false);
     }
@@ -38,20 +39,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      // Make direct API call since apiService doesn't have login method
-      const response = await fetch('https://tax-box-production.up.railway.app/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `username=${email}&password=${password}`
-      });
-
-      if (!response.ok) {
-        throw new Error('Login failed');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('token', data.access_token);
+      const response = await apiService.login(email, password);
       await fetchUser();
+      return response;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -60,23 +50,12 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (email, fullName, password) => {
     try {
-      // Make direct API call for registration
-      const response = await fetch('https://tax-box-production.up.railway.app/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          full_name: fullName,
-          password,
-        })
+      const response = await apiService.register({
+        email,
+        full_name: fullName,
+        password,
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText);
-      }
-
-      return await response.json();
+      return response;
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -85,6 +64,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
   };
 
