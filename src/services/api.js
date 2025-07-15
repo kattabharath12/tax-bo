@@ -1,15 +1,15 @@
-// src/services/api.js
+// src/services/api.js - FIXED VERSION
 import axios from 'axios';
 
-// FIXED: Add /api prefix to match backend routes
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://tax-box-production.up.railway.app/api';
+// FIXED: Correct API URL matching your Railway deployment
+const API_BASE_URL = 'https://tax-box-production.up.railway.app/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 second timeout
+  timeout: 30000,
 });
 
 // Request interceptor to add auth token
@@ -33,8 +33,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      // Emit custom event instead of direct redirect
-      window.dispatchEvent(new CustomEvent('auth-error'));
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
@@ -42,17 +41,14 @@ api.interceptors.response.use(
 
 // API service methods
 export const apiService = {
-  // Get auth token
-  getAuthToken: () => localStorage.getItem('token'),
-  
-  // ADDED: Auth methods that were missing
+  // Auth methods
   login: async (email, password) => {
     try {
       const formData = new FormData();
       formData.append('username', email);
       formData.append('password', password);
       
-      const response = await axios.post(`${API_BASE_URL}/token`, formData, {
+      const response = await axios.post(`${API_BASE_URL.replace('/api', '')}/token`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -69,7 +65,7 @@ export const apiService = {
 
   register: async (userData) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/register`, userData);
+      const response = await axios.post(`${API_BASE_URL.replace('/api', '')}/register`, userData);
       return response.data;
     } catch (error) {
       console.error('Registration error:', error);
@@ -77,24 +73,14 @@ export const apiService = {
     }
   },
 
-  getCurrentUser: async () => {
+  // User endpoints
+  getProfile: async () => {
     try {
       const response = await api.get('/users/me');
       return response.data;
     } catch (error) {
-      console.error('Error fetching current user:', error);
-      throw new Error('Failed to fetch user data');
-    }
-  },
-
-  // Health check
-  healthCheck: async () => {
-    try {
-      const response = await api.get('/health');
-      return response.data;
-    } catch (error) {
-      console.error('Health check failed:', error);
-      throw error;
+      console.error('Error fetching profile:', error);
+      throw new Error('Failed to fetch profile');
     }
   },
 
@@ -130,26 +116,6 @@ export const apiService = {
     }
   },
 
-  updateTaxReturn: async (taxReturnId, taxReturnData) => {
-    try {
-      const response = await api.put(`/tax-returns/${taxReturnId}`, taxReturnData);
-      return response.data;
-    } catch (error) {
-      console.error('Error updating tax return:', error);
-      throw new Error(error.response?.data?.detail || 'Failed to update tax return');
-    }
-  },
-
-  updateFilingStatus: async (taxReturnId, filingStatusData) => {
-    try {
-      const response = await api.put(`/tax-returns/${taxReturnId}/filing-status`, filingStatusData);
-      return response.data;
-    } catch (error) {
-      console.error('Error updating filing status:', error);
-      throw new Error(error.response?.data?.detail || 'Failed to update filing status');
-    }
-  },
-
   getTaxReturns: async () => {
     try {
       const response = await api.get('/tax-returns');
@@ -170,15 +136,23 @@ export const apiService = {
     }
   },
 
-  // FIXED: This endpoint doesn't exist in your backend yet
-  deleteTaxReturn: async (taxReturnId) => {
+  updateTaxReturn: async (taxReturnId, taxReturnData) => {
     try {
-      const response = await api.delete(`/tax-returns/${taxReturnId}`);
+      const response = await api.put(`/tax-returns/${taxReturnId}`, taxReturnData);
       return response.data;
     } catch (error) {
-      console.error('Error deleting tax return:', error);
-      // For now, just throw a user-friendly error
-      throw new Error('Delete functionality not yet implemented');
+      console.error('Error updating tax return:', error);
+      throw new Error(error.response?.data?.detail || 'Failed to update tax return');
+    }
+  },
+
+  updateFilingStatus: async (taxReturnId, filingStatusData) => {
+    try {
+      const response = await api.put(`/tax-returns/${taxReturnId}/filing-status`, filingStatusData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating filing status:', error);
+      throw new Error(error.response?.data?.detail || 'Failed to update filing status');
     }
   },
 
@@ -210,16 +184,6 @@ export const apiService = {
     }
   },
 
-  getDocument: async (documentId) => {
-    try {
-      const response = await api.get(`/documents/${documentId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching document:', error);
-      throw new Error('Failed to fetch document');
-    }
-  },
-
   deleteDocument: async (documentId) => {
     try {
       const response = await api.delete(`/documents/${documentId}`);
@@ -227,55 +191,6 @@ export const apiService = {
     } catch (error) {
       console.error('Error deleting document:', error);
       throw new Error(error.response?.data?.detail || 'Failed to delete document');
-    }
-  },
-
-  // UPDATED: These endpoints don't exist in your backend yet, but provide fallbacks
-  processDocumentForTaxData: async (documentId) => {
-    try {
-      const response = await api.post(`/documents/${documentId}/process-tax-data`);
-      return response.data;
-    } catch (error) {
-      console.error('Error processing document for tax data:', error);
-      // Fallback: return simulated data for now
-      return {
-        income: Math.floor(Math.random() * 50000) + 40000,
-        withholdings: Math.floor(Math.random() * 8000) + 5000,
-        deductions: 14600,
-        tax_year: new Date().getFullYear() - 1,
-        filing_status: 'single'
-      };
-    }
-  },
-
-  autoCreateTaxReturnFromDocument: async (documentId) => {
-    try {
-      const response = await api.post(`/documents/${documentId}/auto-create-tax-return`);
-      return response.data;
-    } catch (error) {
-      console.error('Error auto-creating tax return from document:', error);
-      throw new Error('Auto-create functionality not yet implemented');
-    }
-  },
-
-  // User endpoints
-  getProfile: async () => {
-    try {
-      const response = await api.get('/users/me');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      throw new Error('Failed to fetch profile');
-    }
-  },
-
-  updateProfile: async (profileData) => {
-    try {
-      const response = await api.put('/users/me', profileData);
-      return response.data;
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      throw new Error('Profile update not yet implemented');
     }
   },
 
@@ -290,90 +205,7 @@ export const apiService = {
     }
   },
 
-  getPayments: async () => {
-    try {
-      const response = await api.get('/payments');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching payments:', error);
-      throw new Error('Failed to fetch payments');
-    }
-  },
-
-  getPayment: async (paymentId) => {
-    try {
-      const response = await api.get(`/payments/${paymentId}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching payment:', error);
-      throw new Error('Failed to fetch payment');
-    }
-  },
-
-  // Tax calculation and validation (these endpoints don't exist yet)
-  calculateTax: async (taxData) => {
-    try {
-      const response = await api.post('/tax-returns/calculate', taxData);
-      return response.data;
-    } catch (error) {
-      console.error('Error calculating tax:', error);
-      // Fallback calculation if backend doesn't support
-      const income = taxData.income || 0;
-      const deductions = taxData.deductions || 14600;
-      const withholdings = taxData.withholdings || 0;
-      const taxableIncome = Math.max(0, income - deductions);
-      const taxOwed = taxableIncome * 0.22; // Simplified calculation
-      
-      return {
-        tax_owed: taxOwed,
-        refund_amount: Math.max(0, withholdings - taxOwed),
-        amount_owed: Math.max(0, taxOwed - withholdings),
-        effective_tax_rate: income > 0 ? (taxOwed / income) * 100 : 0
-      };
-    }
-  },
-
-  validateTaxReturn: async (taxReturnData) => {
-    try {
-      const response = await api.post('/tax-returns/validate', taxReturnData);
-      return response.data;
-    } catch (error) {
-      console.error('Error validating tax return:', error);
-      // Basic validation fallback
-      const errors = [];
-      if (!taxReturnData.income || taxReturnData.income <= 0) {
-        errors.push('Income must be greater than 0');
-      }
-      if (!taxReturnData.tax_year || taxReturnData.tax_year < 2020) {
-        errors.push('Invalid tax year');
-      }
-      return { valid: errors.length === 0, errors };
-    }
-  },
-
-  submitTaxReturn: async (taxReturnId) => {
-    try {
-      const response = await api.post(`/tax-returns/${taxReturnId}/submit`);
-      return response.data;
-    } catch (error) {
-      console.error('Error submitting tax return:', error);
-      throw new Error('Submit functionality not yet implemented');
-    }
-  },
-
   // Export functionality
-  exportTaxReturnPDF: async (taxReturnId) => {
-    try {
-      const response = await api.get(`/tax-returns/${taxReturnId}/export/pdf`, {
-        responseType: 'blob'
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error exporting tax return as PDF:', error);
-      throw new Error('PDF export not yet implemented');
-    }
-  },
-
   exportTaxReturnJSON: async (taxReturnId) => {
     try {
       const response = await api.get(`/tax-returns/${taxReturnId}/export/json`);
@@ -384,46 +216,22 @@ export const apiService = {
     }
   },
 
-  getTaxReturnStatus: async (taxReturnId) => {
+  // Health check
+  healthCheck: async () => {
     try {
-      const response = await api.get(`/tax-returns/${taxReturnId}/status`);
+      const response = await api.get('/');
       return response.data;
     } catch (error) {
-      console.error('Error fetching tax return status:', error);
-      throw new Error('Status check not yet implemented');
+      console.error('Health check failed:', error);
+      throw error;
     }
   }
-};
-
-// React hook for API calls with loading and error states
-export const useApi = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const call = useCallback(async (apiMethod, ...args) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const result = await apiMethod(...args);
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const clearError = useCallback(() => setError(null), []);
-
-  return { call, loading, error, clearError };
 };
 
 // Legacy exports for backward compatibility
 export const login = (email, password) => apiService.login(email, password);
 export const register = (userData) => apiService.register(userData);
-export const getCurrentUser = () => apiService.getCurrentUser();
+export const getCurrentUser = () => apiService.getProfile();
 export const uploadDocument = (file) => apiService.uploadDocument(file);
 export const getDocuments = () => apiService.getDocuments();
 export const deleteDocument = (id) => apiService.deleteDocument(id);
@@ -432,8 +240,5 @@ export const getTaxReturns = () => apiService.getTaxReturns();
 export const updateTaxReturn = (id, data) => apiService.updateTaxReturn(id, data);
 export const createPayment = (data) => apiService.createPayment(data);
 
-// Export both named export and default export for backward compatibility
 export default apiService;
-
-// Also export the raw axios instance if needed
 export { api };
