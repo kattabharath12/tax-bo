@@ -1,79 +1,155 @@
 import React, { useState, useEffect } from 'react';
 
-// Mock API service for demonstration
+// Real API service for backend communication
 const apiService = {
+  // Base URL for your backend API
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000/api', // Update with your backend URL
+  
+  // Helper method to get auth headers
+  getHeaders: () => {
+    const token = localStorage.getItem('token');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : ''
+    };
+  },
+
   getUserProfile: async () => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // Check if user is logged in (you can replace this with your actual auth logic)
-        const token = localStorage.getItem('token');
-        if (!token) {
-          reject(new Error('No authentication token found'));
-          return;
-        }
-        
-        // Return user data from localStorage or prompt user for it
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          resolve(JSON.parse(storedUser));
-        } else {
-          // For demo purposes, prompt for user info
-          const name = prompt('Please enter your full name:') || 'User';
-          const email = prompt('Please enter your email:') || 'user@example.com';
-          
-          const userData = {
-            id: `user_${Date.now()}`,
-            full_name: name,
-            email: email
-          };
-          
-          // Store user data
-          localStorage.setItem('user', JSON.stringify(userData));
-          resolve(userData);
-        }
-      }, 1000);
-    });
+    try {
+      const response = await fetch(`${apiService.baseURL}/user/profile`, {
+        method: 'GET',
+        headers: apiService.getHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user profile: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      throw error;
+    }
   },
   
   getTaxReturns: async () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Return empty array - no predefined data
-        resolve([]);
-      }, 800);
-    });
+    try {
+      const response = await fetch(`${apiService.baseURL}/tax-returns`, {
+        method: 'GET',
+        headers: apiService.getHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tax returns: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching tax returns:', error);
+      throw error;
+    }
   },
   
   getDocuments: async () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Return empty array - no predefined data
-        resolve([]);
-      }, 600);
-    });
+    try {
+      const response = await fetch(`${apiService.baseURL}/documents`, {
+        method: 'GET',
+        headers: apiService.getHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch documents: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      throw error;
+    }
   },
   
   uploadDocument: async (file) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          id: `doc_${Date.now()}`,
-          filename: file.name,
-          file_type: file.type.split('/')[1].toUpperCase(),
-          file_size: file.size,
-          uploaded_at: new Date().toISOString(),
-          ocr_text: Math.random() > 0.5 ? 'AI extracted text data...' : null
-        });
-      }, 2000);
-    });
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${apiService.baseURL}/documents/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+          // Don't set Content-Type for FormData, let browser set it with boundary
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to upload document: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      throw error;
+    }
   },
   
   createTaxReturn: async (data) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const taxOwed = Math.max(0, data.income * 0.12 - (data.deductions || 12550) * 0.12);
-        const refund = Math.max(0, data.withholdings - taxOwed);
-        const amountOwed = Math.max(0, taxOwed - data.withholdings);
+    try {
+      const response = await fetch(`${apiService.baseURL}/tax-returns`, {
+        method: 'POST',
+        headers: apiService.getHeaders(),
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to create tax return: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating tax return:', error);
+      throw error;
+    }
+  },
+  
+  updateTaxReturn: async (id, data) => {
+    try {
+      const response = await fetch(`${apiService.baseURL}/tax-returns/${id}`, {
+        method: 'PUT',
+        headers: apiService.getHeaders(),
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update tax return: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating tax return:', error);
+      throw error;
+    }
+  },
+  
+  deleteDocument: async (id) => {
+    try {
+      const response = await fetch(`${apiService.baseURL}/documents/${id}`, {
+        method: 'DELETE',
+        headers: apiService.getHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to delete document: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      throw error;
+    }
+  }
+};max(0, taxOwed - data.withholdings);
         
         resolve({
           id: `tr_${Date.now()}`,
