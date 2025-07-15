@@ -3,13 +3,34 @@ import React, { useState, useEffect } from 'react';
 // Mock API service for demonstration
 const apiService = {
   getUserProfile: async () => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       setTimeout(() => {
-        resolve({
-          id: 'user123',
-          full_name: 'John Doe',
-          email: 'john.doe@example.com'
-        });
+        // Check if user is logged in (you can replace this with your actual auth logic)
+        const token = localStorage.getItem('token');
+        if (!token) {
+          reject(new Error('No authentication token found'));
+          return;
+        }
+        
+        // Return user data from localStorage or prompt user for it
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          resolve(JSON.parse(storedUser));
+        } else {
+          // For demo purposes, prompt for user info
+          const name = prompt('Please enter your full name:') || 'User';
+          const email = prompt('Please enter your email:') || 'user@example.com';
+          
+          const userData = {
+            id: `user_${Date.now()}`,
+            full_name: name,
+            email: email
+          };
+          
+          // Store user data
+          localStorage.setItem('user', JSON.stringify(userData));
+          resolve(userData);
+        }
       }, 1000);
     });
   },
@@ -17,36 +38,8 @@ const apiService = {
   getTaxReturns: async () => {
     return new Promise((resolve) => {
       setTimeout(() => {
-        resolve([
-          {
-            id: 'tr1',
-            tax_year: 2024,
-            income: 75000,
-            withholdings: 8500,
-            deductions: 12550,
-            tax_owed: 7200,
-            refund_amount: 1300,
-            amount_owed: 0,
-            status: 'draft',
-            filing_status: 'single',
-            created_at: '2024-01-15T10:00:00Z',
-            auto_generated: true
-          },
-          {
-            id: 'tr2',
-            tax_year: 2023,
-            income: 68000,
-            withholdings: 7800,
-            deductions: 12550,
-            tax_owed: 6500,
-            refund_amount: 0,
-            amount_owed: 200,
-            status: 'filed',
-            filing_status: 'single',
-            created_at: '2023-04-10T14:30:00Z',
-            auto_generated: false
-          }
-        ]);
+        // Return empty array - no predefined data
+        resolve([]);
       }, 800);
     });
   },
@@ -54,24 +47,8 @@ const apiService = {
   getDocuments: async () => {
     return new Promise((resolve) => {
       setTimeout(() => {
-        resolve([
-          {
-            id: 'doc1',
-            filename: 'W2_2024_Acme_Corp.pdf',
-            file_type: 'PDF',
-            file_size: 245760,
-            uploaded_at: '2024-02-01T09:15:00Z',
-            ocr_text: 'Extracted tax data from W-2 form...'
-          },
-          {
-            id: 'doc2',
-            filename: '1099_Investment_Income.pdf',
-            file_type: 'PDF',
-            file_size: 189440,
-            uploaded_at: '2024-02-15T16:45:00Z',
-            ocr_text: null
-          }
-        ]);
+        // Return empty array - no predefined data
+        resolve([]);
       }, 600);
     });
   },
@@ -172,7 +149,22 @@ function Dashboard() {
   // Logout function
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to logout?')) {
-      alert('Logout functionality would redirect to login page');
+      // Clear all stored data
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      sessionStorage.clear();
+      
+      // Reset all state
+      setUser(null);
+      setTaxReturns([]);
+      setDocuments([]);
+      setShowUploadForm(false);
+      setShowManualEntry(false);
+      setCurrentDocument(null);
+      setProcessingDocument(false);
+      setError(null);
+      
+      alert('You have been logged out successfully. In a real app, you would be redirected to the login page.');
     }
   };
 
@@ -185,12 +177,12 @@ function Dashboard() {
       try {
         console.log('Loading user profile and data...');
         
-        // Load user profile
+        // Load user profile (this will prompt for user info if not available)
         const userProfile = await apiService.getUserProfile();
         console.log('User profile loaded:', userProfile);
         setUser(userProfile);
 
-        // Load tax returns and documents in parallel
+        // Load tax returns and documents in parallel (both will be empty initially)
         setLoading(true);
         
         const [taxReturnsData, documentsData] = await Promise.all([
@@ -206,10 +198,20 @@ function Dashboard() {
         
       } catch (err) {
         console.error('Error loading dashboard data:', err);
-        setError('Failed to load dashboard data. Please try refreshing the page.');
         
-        // Fallback user data
-        setUser({ full_name: 'User', email: 'user@example.com', id: 'unknown' });
+        if (err.message?.includes('No authentication token found')) {
+          setError('Please log in to access your dashboard. For demo purposes, please set a token in localStorage.');
+          // Set a demo token for testing
+          localStorage.setItem('token', 'demo_token_123');
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        } else {
+          setError('Failed to load dashboard data. Please try refreshing the page.');
+          
+          // Fallback: set minimal user data
+          setUser({ full_name: 'User', email: 'user@example.com', id: 'demo_user' });
+        }
       } finally {
         setLoading(false);
         setUserLoading(false);
