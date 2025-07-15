@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 
 function Dashboard() {
-  const [user] = useState({ full_name: 'Your Name' });
+  // User state - now loads real user data
+  const [user, setUser] = useState(null);
+  const [userLoading, setUserLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   
@@ -26,9 +28,9 @@ function Dashboard() {
   const [currentDocument, setCurrentDocument] = useState(null);
   const [processingDocument, setProcessingDocument] = useState(false);
   const [autoFilingEnabled, setAutoFilingEnabled] = useState(true);
-  // const [showDetailView, setShowDetailView] = useState(false);
-  // const [detailViewData, setDetailViewData] = useState(null);
-  // const [detailViewType, setDetailViewType] = useState('');
+  const [showDetailView, setShowDetailView] = useState(false);
+  const [detailViewData, setDetailViewData] = useState(null);
+  const [detailViewType, setDetailViewType] = useState('');
   const [manualTaxData, setManualTaxData] = useState({
     income: '',
     withholdings: '',
@@ -37,31 +39,93 @@ function Dashboard() {
     document_type: 'w2'
   });
 
-  // Load initial data
+  // Load user profile and initial data
   useEffect(() => {
-    const loadInitialData = async () => {
-      setLoading(true);
+    const loadUserAndData = async () => {
+      setUserLoading(true);
       setError(null);
       
       try {
-        // Load tax returns and documents using API service
+        // Check if we have a valid token
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.log('No token found, redirecting to login');
+          window.location.href = '/login';
+          return;
+        }
+
+        console.log('Loading user profile and data...');
+        
+        // Load user profile first
+        try {
+          const userProfile = await apiService.getUserProfile();
+          console.log('User profile loaded:', userProfile);
+          setUser(userProfile);
+          
+          // Store user data in localStorage for persistence
+          localStorage.setItem('user', JSON.stringify(userProfile));
+        } catch (userError) {
+          console.error('Failed to load user profile:', userError);
+          
+          // Try to get user from localStorage as fallback
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            console.log('Using stored user data as fallback');
+            setUser(JSON.parse(storedUser));
+          } else {
+            // If token is invalid, redirect to login
+            if (userError.message?.includes('401') || userError.message?.includes('unauthorized')) {
+              console.log('Invalid token, redirecting to login');
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              window.location.href = '/login';
+              return;
+            }
+            
+            // Use fallback user data
+            setUser({ full_name: 'User', email: 'user@example.com', id: 'unknown' });
+          }
+        }
+
+        // Load tax returns and documents in parallel
+        console.log('Loading tax returns and documents...');
+        setLoading(true);
+        
         const [taxReturnsData, documentsData] = await Promise.all([
-          apiService.getTaxReturns(),
-          apiService.getDocuments()
+          apiService.getTaxReturns().catch(err => {
+            console.error('Failed to load tax returns:', err);
+            return []; // Return empty array on error
+          }),
+          apiService.getDocuments().catch(err => {
+            console.error('Failed to load documents:', err);
+            return []; // Return empty array on error
+          })
         ]);
+        
+        console.log('Tax returns loaded:', taxReturnsData?.length || 0);
+        console.log('Documents loaded:', documentsData?.length || 0);
         
         setTaxReturns(taxReturnsData || []);
         setDocuments(documentsData || []);
         
       } catch (err) {
-        setError('Failed to load data. Please try again.');
-        console.error('Load data error:', err);
+        console.error('Critical error loading dashboard data:', err);
+        setError('Failed to load dashboard data. Please try refreshing the page.');
+        
+        // Try to use any cached data
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          setUser({ full_name: 'User', email: 'user@example.com', id: 'unknown' });
+        }
       } finally {
         setLoading(false);
+        setUserLoading(false);
       }
     };
 
-    loadInitialData();
+    loadUserAndData();
   }, []);
 
   // Helper function to safely convert to number and format
@@ -83,8 +147,11 @@ function Dashboard() {
     setError(null);
     
     try {
+      console.log('Uploading document:', file.name);
+      
       // Upload using API service
       const uploadedDoc = await apiService.uploadDocument(file);
+      console.log('Document uploaded successfully:', uploadedDoc);
       
       // Add to local state
       setDocuments(prev => [uploadedDoc, ...prev]);
@@ -144,6 +211,8 @@ function Dashboard() {
 
   const createTaxReturnFromData = async (extractedData, sourceDocument) => {
     try {
+      console.log('Creating tax return from extracted data:', extractedData);
+      
       const existingReturn = taxReturns.find(tr => tr.tax_year === extractedData.tax_year);
       
       if (existingReturn) {
@@ -158,6 +227,7 @@ function Dashboard() {
         
         // Update using API service
         const savedReturn = await apiService.updateTaxReturn(existingReturn.id, updatedReturn);
+        console.log('Tax return updated:', savedReturn);
         
         // Update local state
         setTaxReturns(prev => prev.map(tr => 
@@ -180,6 +250,7 @@ function Dashboard() {
         };
         
         const savedReturn = await apiService.createTaxReturn(newTaxReturnData);
+        console.log('New tax return created:', savedReturn);
         
         // Update local state
         setTaxReturns(prev => [savedReturn, ...prev]);
@@ -203,6 +274,8 @@ function Dashboard() {
     setError(null);
     
     try {
+      console.log('Creating manual tax return:', manualTaxData);
+      
       const newTaxReturnData = {
         tax_year: parseInt(manualTaxData.tax_year),
         income: safeToNumber(manualTaxData.income),
@@ -215,6 +288,7 @@ function Dashboard() {
       
       // Create using API service
       const savedReturn = await apiService.createTaxReturn(newTaxReturnData);
+      console.log('Manual tax return created:', savedReturn);
       
       // Update local state
       setTaxReturns(prev => [savedReturn, ...prev]);
@@ -242,6 +316,8 @@ function Dashboard() {
   const handleDeleteDocument = async (documentId) => {
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
+        console.log('Deleting document:', documentId);
+        
         // Delete using API service
         await apiService.deleteDocument(documentId);
         
@@ -260,6 +336,56 @@ function Dashboard() {
     setCurrentDocument(document);
     setShowManualEntry(true);
   };
+
+  // Show loading screen if user data is still loading
+  if (userLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #581c87 50%, #1e1b4b 75%, #0f172a 100%)',
+        color: 'white',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(6, 182, 212, 0.9))',
+          padding: '3rem',
+          borderRadius: '2rem',
+          textAlign: 'center',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
+        }}>
+          <div style={{
+            width: '4rem',
+            height: '4rem',
+            border: '4px solid rgba(255, 255, 255, 0.3)',
+            borderTop: '4px solid white',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 2rem'
+          }}></div>
+          <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem' }}>
+            🚀 Loading TaxBox.AI
+          </h2>
+          <p style={{ fontSize: '1.25rem', color: '#e2e8f0' }}>
+            Setting up your personalized dashboard...
+          </p>
+          <p style={{ fontSize: '1rem', color: '#cbd5e1', marginTop: '1rem' }}>
+            Fetching your tax returns, documents, and profile
+          </p>
+        </div>
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `
+        }} />
+      </div>
+    );
+  }
 
   const stats = [
     { title: 'Total Returns', value: taxReturns.length, icon: '📄' },
@@ -373,7 +499,7 @@ function Dashboard() {
             marginBottom: '2rem',
             fontWeight: '600'
           }}>
-            Welcome {user?.full_name}! ✨ Your AI-Powered Tax Filing Experience
+            Welcome {user?.full_name || 'User'}! ✨ Your AI-Powered Tax Filing Experience
           </p>
           
           <div style={{
@@ -518,96 +644,6 @@ function Dashboard() {
                   <select
                     value={manualTaxData.tax_year}
                     onChange={(e) => setManualTaxData(prev => ({...prev, tax_year: parseInt(e.target.value)}))}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: '2px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: '0.75rem',
-                      padding: '0.75rem 1rem',
-                      color: 'white',
-                      fontSize: '0.875rem',
-                      width: '100%',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    <option value={2024}>2024</option>
-                    <option value={2023}>2023</option>
-                    <option value={2022}>2022</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    color: '#e2e8f0',
-                    marginBottom: '0.5rem'
-                  }}>
-                    💵 Income/Wages ($)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={manualTaxData.income}
-                    onChange={(e) => setManualTaxData(prev => ({...prev, income: e.target.value}))}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: '2px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: '0.75rem',
-                      padding: '0.75rem 1rem',
-                      color: 'white',
-                      fontSize: '0.875rem',
-                      width: '100%',
-                      transition: 'all 0.3s ease'
-                    }}
-                    placeholder="75,000.00"
-                  />
-                </div>
-                
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    color: '#e2e8f0',
-                    marginBottom: '0.5rem'
-                  }}>
-                    🧾 Federal Tax Withheld ($)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={manualTaxData.withholdings}
-                    onChange={(e) => setManualTaxData(prev => ({...prev, withholdings: e.target.value}))}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: '2px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: '0.75rem',
-                      padding: '0.75rem 1rem',
-                      color: 'white',
-                      fontSize: '0.875rem',
-                      width: '100%',
-                      transition: 'all 0.3s ease'
-                    }}
-                    placeholder="8,500.00"
-                  />
-                </div>
-                
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    color: '#e2e8f0',
-                    marginBottom: '0.5rem'
-                  }}>
-                    📄 Deductions ($) - Optional
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={manualTaxData.deductions}
-                    onChange={(e) => setManualTaxData(prev => ({...prev, deductions: e.target.value}))}
                     style={{
                       background: 'rgba(255, 255, 255, 0.1)',
                       border: '2px solid rgba(255, 255, 255, 0.2)',
@@ -1607,9 +1643,14 @@ function Dashboard() {
           }}>
             🚀 Powered by TaxBox.AI - The Future of Tax Filing
           </p>
-          <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+          <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>
             Built with ❤️ using React and modern web technologies
           </p>
+          {user && (
+            <p style={{ fontSize: '0.75rem', color: '#4b5563' }}>
+              Logged in as: {user.email || user.full_name} • User ID: {user.id}
+            </p>
+          )}
         </div>
       </div>
 
@@ -1644,6 +1685,1137 @@ function Dashboard() {
       }} />
     </div>
   );
+}
+
+export default Dashboard;, 255, 255, 0.2)',
+                      borderRadius: '0.75rem',
+                      padding: '0.75rem 1rem',
+                      color: 'white',
+                      fontSize: '0.875rem',
+                      width: '100%',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    <option value={2024}>2024</option>
+                    <option value={2023}>2023</option>
+                    <option value={2022}>2022</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    color: '#e2e8f0',
+                    marginBottom: '0.5rem'
+                  }}>
+                    💵 Income/Wages ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={manualTaxData.income}
+                    onChange={(e) => setManualTaxData(prev => ({...prev, income: e.target.value}))}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '2px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '0.75rem',
+                      padding: '0.75rem 1rem',
+                      color: 'white',
+                      fontSize: '0.875rem',
+                      width: '100%',
+                      transition: 'all 0.3s ease'
+                    }}
+                    placeholder="75,000.00"
+                  />
+                </div>
+                
+                <div>
+  <label style={{
+    display: 'block',
+    fontSize: '1rem',
+    fontWeight: '600',
+    color: '#e2e8f0',
+    marginBottom: '0.5rem'
+  }}>
+    🧾 Federal Tax Withheld ($)
+  </label>
+  <input
+    type="number"
+    step="0.01"
+    value={manualTaxData.withholdings}
+    onChange={(e) => setManualTaxData(prev => ({...prev, withholdings: e.target.value}))}
+    style={{
+      background: 'rgba(255, 255, 255, 0.1)',
+      border: '2px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '0.75rem',
+      padding: '0.75rem 1rem',
+      color: 'white',
+      fontSize: '0.875rem',
+      width: '100%',
+      transition: 'all 0.3s ease'
+    }}
+    placeholder="8,500.00"
+  />
+</div>
+
+<div>
+  <label style={{
+    display: 'block',
+    fontSize: '1rem',
+    fontWeight: '600',
+    color: '#e2e8f0',
+    marginBottom: '0.5rem'
+  }}>
+    📄 Deductions ($) - Optional
+  </label>
+  <input
+    type="number"
+    step="0.01"
+    value={manualTaxData.deductions}
+    onChange={(e) => setManualTaxData(prev => ({...prev, deductions: e.target.value}))}
+    style={{
+      background: 'rgba(255, 255, 255, 0.1)',
+      border: '2px solid rgba(255, 255, 255, 0.2)',
+      borderRadius: '0.75rem',
+      padding: '0.75rem 1rem',
+      color: 'white',
+      fontSize: '0.875rem',
+      width: '100%',
+      transition: 'all 0.3s ease'
+    }}
+    placeholder="Leave blank for standard deduction"
+  />
+</div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManualEntry(false);
+                    setCurrentDocument(null);
+                  }}
+                  style={{
+                    background: 'rgba(107, 114, 128, 0.5)',
+                    color: '#e2e8f0',
+                    border: 'none',
+                    borderRadius: '1rem',
+                    padding: '0.75rem 1.5rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    fontSize: '0.875rem'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button type="submit" style={{
+                  background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '1rem',
+                  padding: '0.75rem 1.5rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontSize: '0.875rem'
+                }}>
+                  ✨ Create Tax Return
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Upload Form */}
+        {showUploadForm && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(59, 130, 246, 0.1))',
+            backdropFilter: 'blur(20px)',
+            border: '2px solid rgba(6, 182, 212, 0.3)',
+            borderRadius: '2rem',
+            padding: '2.5rem',
+            marginBottom: '2rem',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
+              <div style={{
+                width: '4rem',
+                height: '4rem',
+                background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                borderRadius: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '2rem'
+              }}>
+                📤
+              </div>
+              <div>
+                <h2 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                  Upload Tax Documents
+                </h2>
+                <p style={{ color: '#e2e8f0', fontSize: '1.125rem' }}>
+                  Drag & drop or click to upload your tax documents
+                </p>
+              </div>
+            </div>
+            
+            <div style={{
+              border: '3px dashed rgba(107, 114, 128, 0.5)',
+              borderRadius: '1.5rem',
+              padding: '3rem',
+              textAlign: 'center',
+              background: 'rgba(255, 255, 255, 0.05)',
+              marginBottom: '2rem'
+            }}>
+              <label style={{ cursor: 'pointer', display: 'block' }}>
+                <div style={{
+                  width: '6rem',
+                  height: '6rem',
+                  background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
+                  borderRadius: '2rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '3rem',
+                  margin: '0 auto 2rem',
+                  boxShadow: '0 20px 40px rgba(6, 182, 212, 0.3)'
+                }}>
+                  📤
+                </div>
+                <h3 style={{
+                  fontSize: 'clamp(1.5rem, 4vw, 2.5rem)',
+                  fontWeight: 'bold',
+                  marginBottom: '1rem',
+                  color: '#06b6d4'
+                }}>
+                  Choose Files or Drag & Drop
+                </h3>
+                <p style={{
+                  color: '#e2e8f0',
+                  marginBottom: '2rem',
+                  fontSize: '1.125rem'
+                }}>
+                  Upload your W-2, 1099, 1098, and other tax documents for AI processing
+                </p>
+                <div style={{
+                  background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '1rem',
+                  padding: '1rem 2rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontSize: '1.25rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <span style={{ fontSize: '1.5rem' }}>⚡</span>
+                  Select Files
+                </div>
+                <input
+                  type="file"
+                  onChange={handleUploadDocument}
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
+                  style={{ display: 'none' }}
+                  disabled={processingDocument}
+                />
+              </label>
+              <p style={{
+                fontSize: '0.875rem',
+                color: '#9ca3af',
+                marginTop: '1rem'
+              }}>
+                Supported: PDF, JPG, PNG, DOC, DOCX, TXT • Max 10MB per file
+              </p>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={() => setShowUploadForm(false)} 
+                style={{
+                  background: 'rgba(107, 114, 128, 0.5)',
+                  color: '#e2e8f0',
+                  border: 'none',
+                  borderRadius: '1rem',
+                  padding: '0.75rem 1.5rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontSize: '0.875rem'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        {!showUploadForm && !showManualEntry && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+            gap: '2rem',
+            marginBottom: '3rem'
+          }}>
+            {[
+              {
+                icon: "📝",
+                title: "Manual Tax Filing",
+                description: "Complete control over your tax return process",
+                gradient: "linear-gradient(135deg, #3b82f6, #06b6d4)",
+                action: () => {
+                  setShowManualEntry(true);
+                  setCurrentDocument(null);
+                }
+              },
+              {
+                icon: "🤖",
+                title: "AI-Powered Filing",
+                description: "Upload documents and let AI handle the rest!",
+                gradient: "linear-gradient(135deg, #8b5cf6, #ec4899)",
+                action: () => setShowUploadForm(true)
+              },
+              {
+                icon: "📄",
+                title: "View All Returns",
+                description: "Access your complete tax return history",
+                gradient: "linear-gradient(135deg, #10b981, #14b8a6)",
+                action: () => {
+                  const returnsList = taxReturns.map(tr => 
+                    `• ${tr.tax_year}: ${tr.status} - ${safeToNumber(tr.income).toLocaleString()}`
+                  ).join('\n');
+                  alert(`You have ${taxReturns.length} tax returns:\n\n${returnsList || 'No returns yet'}`);
+                }
+              }
+            ].map((item, index) => (
+              <div
+                key={index}
+                style={{
+                  background: item.gradient.replace(')', ', 0.1)'),
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '2rem',
+                  padding: '2.5rem',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+                onClick={item.action}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'scale(1.05) translateY(-10px)';
+                  e.target.style.boxShadow = '0 30px 60px rgba(0, 0, 0, 0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'scale(1) translateY(0)';
+                  e.target.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.3)';
+                }}
+              >
+                <div style={{
+                  width: '6rem',
+                  height: '6rem',
+                  background: item.gradient,
+                  borderRadius: '2rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '3rem',
+                  margin: '0 auto 2rem',
+                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
+                }}>
+                  {item.icon}
+                </div>
+                <h3 style={{
+                  fontSize: '1.75rem',
+                  fontWeight: 'bold',
+                  marginBottom: '1rem',
+                  background: item.gradient,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  {item.title}
+                </h3>
+                <p style={{
+                  color: '#e2e8f0',
+                  marginBottom: '2rem',
+                  fontSize: '1.125rem',
+                  lineHeight: '1.6'
+                }}>
+                  {item.description}
+                </p>
+                <div style={{
+                  background: item.gradient,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '1rem',
+                  padding: '1rem 2rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontSize: '1.125rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  Get Started →
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Stats Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '2rem',
+          marginBottom: '3rem'
+        }}>
+          {stats.map((stat, index) => (
+            <div key={index} style={{
+              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))',
+              backdropFilter: 'blur(20px)',
+              border: '2px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '2rem',
+              padding: '2rem',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'translateY(-5px)';
+              e.target.style.boxShadow = '0 25px 50px rgba(0, 0, 0, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.3)';
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1.5rem'
+              }}>
+                <div style={{
+                  width: '4rem',
+                  height: '4rem',
+                  background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
+                  borderRadius: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '2rem'
+                }}>
+                  {stat.icon}
+                </div>
+                <span style={{ fontSize: '2rem', color: '#10b981' }}>📈</span>
+              </div>
+              <h3 style={{
+                fontSize: '1rem',
+                fontWeight: '600',
+                color: '#9ca3af',
+                marginBottom: '0.5rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>
+                {stat.title}
+              </h3>
+              <p style={{
+                fontSize: '2.5rem',
+                fontWeight: '900',
+                color: 'white',
+                background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>
+                {stat.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Documents Section */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(239, 68, 68, 0.1))',
+          backdropFilter: 'blur(20px)',
+          border: '2px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: '2rem',
+          padding: '2.5rem',
+          marginBottom: '2rem',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1.5rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{
+                width: '4rem',
+                height: '4rem',
+                background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                borderRadius: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '2rem'
+              }}>
+                📄
+              </div>
+              <div>
+                <h2 style={{
+                  fontSize: '2.5rem',
+                  fontWeight: 'bold',
+                  marginBottom: '0.5rem',
+                  background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  Your Documents
+                </h2>
+                <p style={{ color: '#e2e8f0', fontSize: '1.125rem' }}>
+                  Manage and process your uploaded tax documents
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowUploadForm(true)} 
+              style={{
+                background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '1rem',
+                padding: '1rem 2rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                fontSize: '1.125rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>➕</span>
+              Upload Document
+            </button>
+          </div>
+          
+          {documents.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem',
+              color: '#9ca3af'
+            }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📄</div>
+              <p style={{ fontSize: '1.25rem' }}>No documents uploaded yet</p>
+              <p style={{ fontSize: '1rem' }}>Upload your tax documents to get started</p>
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+              gap: '2rem'
+            }}>
+              {documents.map((document) => (
+                <div 
+                  key={document.id} 
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '2px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '1.5rem',
+                    padding: '2rem',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.borderColor = 'rgba(139, 92, 246, 0.5)';
+                    e.target.style.transform = 'translateY(-5px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    e.target.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div style={{
+                      width: '4rem',
+                      height: '4rem',
+                      background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                      borderRadius: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '2rem'
+                    }}>
+                      📄
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{
+                        fontSize: '1.25rem',
+                        fontWeight: 'bold',
+                        color: 'white',
+                        marginBottom: '0.5rem',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {document.filename}
+                      </h3>
+                      <p style={{ fontSize: '1rem', color: '#9ca3af' }}>
+                        {document.file_type} • {((document.file_size || 0) / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {document.ocr_text ? (
+                    <div style={{
+                      marginBottom: '1.5rem',
+                      padding: '1rem',
+                      background: 'rgba(16, 185, 129, 0.2)',
+                      border: '2px solid rgba(16, 185, 129, 0.3)',
+                      borderRadius: '1rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#10b981', fontSize: '1.5rem' }}>✅</span>
+                        <p style={{ fontSize: '1rem', fontWeight: '700', color: '#6ee7b7' }}>
+                          AI-Ready Document
+                        </p>
+                      </div>
+                      <p style={{ fontSize: '0.875rem', color: '#10b981' }}>
+                        Text extracted and ready for processing
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{
+                      marginBottom: '1.5rem',
+                      padding: '1rem',
+                      background: 'rgba(245, 158, 11, 0.2)',
+                      border: '2px solid rgba(245, 158, 11, 0.3)',
+                      borderRadius: '1rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#f59e0b', fontSize: '1.5rem' }}>⚠️</span>
+                        <p style={{ fontSize: '1rem', fontWeight: '700', color: '#fbbf24' }}>
+                          Manual Processing Available
+                        </p>
+                      </div>
+                      <p style={{ fontSize: '0.875rem', color: '#f59e0b' }}>
+                        No text extracted - use manual entry option
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button 
+                      onClick={() => {
+                        alert(`Document: ${document.filename}\nType: ${document.file_type}\nSize: ${((document.file_size || 0) / 1024).toFixed(1)} KB\nUploaded: ${new Date(document.uploaded_at).toLocaleDateString()}`);
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: '0.75rem 1rem',
+                        background: 'rgba(59, 130, 246, 0.2)',
+                        border: '2px solid rgba(59, 130, 246, 0.3)',
+                        color: '#93c5fd',
+                        fontSize: '1rem',
+                        borderRadius: '0.75rem',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      👁️ View
+                    </button>
+                    <button 
+                      onClick={() => handleProcessDocument(document)}
+                      style={{
+                        flex: 1,
+                        padding: '0.75rem 1rem',
+                        background: 'rgba(16, 185, 129, 0.2)',
+                        border: '2px solid rgba(16, 185, 129, 0.3)',
+                        color: '#6ee7b7',
+                        fontSize: '1rem',
+                        borderRadius: '0.75rem',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      📝 Process
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteDocument(document.id)}
+                      style={{
+                        padding: '0.75rem 1rem',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        border: '2px solid rgba(239, 68, 68, 0.3)',
+                        color: '#fca5a5',
+                        fontSize: '1rem',
+                        borderRadius: '0.75rem',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Tax Returns Section */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(20, 184, 166, 0.1))',
+          backdropFilter: 'blur(20px)',
+          border: '2px solid rgba(16, 185, 129, 0.3)',
+          borderRadius: '2rem',
+          padding: '2.5rem',
+          marginBottom: '2rem',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1.5rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{
+                width: '4rem',
+                height: '4rem',
+                background: 'linear-gradient(135deg, #10b981, #14b8a6)',
+                borderRadius: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '2rem'
+              }}>
+                📊
+              </div>
+              <div>
+                <h2 style={{
+                  fontSize: '2.5rem',
+                  fontWeight: 'bold',
+                  marginBottom: '0.5rem',
+                  background: 'linear-gradient(135deg, #10b981, #14b8a6)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}>
+                  Your Tax Returns
+                </h2>
+                <p style={{ color: '#e2e8f0', fontSize: '1.125rem' }}>
+                  Track and manage all your tax filings
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <button 
+                onClick={() => setShowUploadForm(true)} 
+                style={{
+                  background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '1rem',
+                  padding: '1rem 2rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontSize: '1.125rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                <span style={{ fontSize: '1.25rem' }}>🤖</span>
+                Smart Filing
+              </button>
+              <button 
+                onClick={() => {
+                  setShowManualEntry(true);
+                  setCurrentDocument(null);
+                }} 
+                style={{
+                  background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '1rem',
+                  padding: '1rem 2rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  fontSize: '1.125rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                <span style={{ fontSize: '1.25rem' }}>📝</span>
+                Manual Filing
+              </button>
+            </div>
+          </div>
+          
+          {taxReturns.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem',
+              color: '#9ca3af'
+            }}>
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📊</div>
+              <p style={{ fontSize: '1.25rem' }}>No tax returns created yet</p>
+              <p style={{ fontSize: '1rem' }}>Create your first tax return to get started</p>
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
+              gap: '2rem'
+            }}>
+              {taxReturns.map((taxReturn) => (
+                <div 
+                  key={taxReturn.id} 
+                  style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                   border: '2px solid rgba(255, 255, 255, 0.1)',
+                   borderRadius: '1.5rem',
+                   padding: '2rem',
+                   transition: 'all 0.3s ease'
+                 }}
+                 onMouseEnter={(e) => {
+                   e.target.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+                   e.target.style.transform = 'scale(1.02)';
+                 }}
+                 onMouseLeave={(e) => {
+                   e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                   e.target.style.transform = 'scale(1)';
+                 }}
+               >
+                 <div style={{
+                   display: 'flex',
+                   justifyContent: 'space-between',
+                   alignItems: 'flex-start',
+                   marginBottom: '2rem'
+                 }}>
+                   <div>
+                     <h3 style={{
+                       fontSize: '1.75rem',
+                       fontWeight: 'bold',
+                       marginBottom: '0.5rem',
+                       background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)',
+                       WebkitBackgroundClip: 'text',
+                       WebkitTextFillColor: 'transparent'
+                     }}>
+                       Tax Year {taxReturn.tax_year}
+                     </h3>
+                     <p style={{ color: '#9ca3af', fontSize: '1rem' }}>
+                       Filed {new Date(taxReturn.created_at).toLocaleDateString()}
+                     </p>
+                   </div>
+                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                     <span style={{
+                       padding: '0.5rem 1rem',
+                       borderRadius: '1rem',
+                       fontSize: '0.875rem',
+                       fontWeight: '700',
+                       background: taxReturn.status === 'draft' 
+                         ? 'rgba(245, 158, 11, 0.2)' 
+                         : 'rgba(16, 185, 129, 0.2)',
+                       border: taxReturn.status === 'draft'
+                         ? '2px solid rgba(245, 158, 11, 0.3)'
+                         : '2px solid rgba(16, 185, 129, 0.3)',
+                       color: taxReturn.status === 'draft' ? '#fbbf24' : '#6ee7b7'
+                     }}>
+                       {taxReturn.status.toUpperCase()}
+                     </span>
+                   </div>
+                 </div>
+
+                 <div style={{
+                   display: 'grid',
+                   gridTemplateColumns: '1fr 1fr',
+                   gap: '1rem',
+                   marginBottom: '2rem'
+                 }}>
+                   {[
+                     { label: "Income", value: safeToNumber(taxReturn.income).toLocaleString(), icon: "💰", color: "#10b981" },
+                     { label: "Deductions", value: safeToNumber(taxReturn.deductions).toLocaleString(), icon: "📄", color: "#3b82f6" },
+                     { label: "Tax Owed", value: safeToFixed(taxReturn.tax_owed), icon: "⚠️", color: "#f59e0b" },
+                     { label: "Withholdings", value: safeToFixed(taxReturn.withholdings), icon: "🛡️", color: "#8b5cf6" }
+                   ].map((item, i) => (
+                     <div key={i} style={{
+                       textAlign: 'center',
+                       padding: '1rem',
+                       background: 'rgba(255, 255, 255, 0.05)',
+                       border: '1px solid rgba(255, 255, 255, 0.1)',
+                       borderRadius: '1rem'
+                     }}>
+                       <span style={{
+                         fontSize: '2rem',
+                         display: 'block',
+                         marginBottom: '0.5rem',
+                         color: item.color
+                       }}>
+                         {item.icon}
+                       </span>
+                       <p style={{
+                         fontSize: '0.875rem',
+                         color: '#9ca3af',
+                         fontWeight: '600',
+                         marginBottom: '0.25rem',
+                         textTransform: 'uppercase',
+                         letterSpacing: '0.05em'
+                       }}>
+                         {item.label}
+                       </p>
+                       <p style={{
+                         fontSize: '1.25rem',
+                         fontWeight: 'bold',
+                         color: 'white'
+                       }}>
+                         ${item.value}
+                       </p>
+                     </div>
+                   ))}
+                 </div>
+                 
+                 <div style={{
+                   marginBottom: '2rem',
+                   padding: '1.5rem',
+                   borderRadius: '1.5rem',
+                   border: '3px dashed rgba(255, 255, 255, 0.2)',
+                   background: 'rgba(255, 255, 255, 0.05)',
+                   textAlign: 'center'
+                 }}>
+                   {safeToNumber(taxReturn.refund_amount) > 0 ? (
+                     <div>
+                       <span style={{
+                         fontSize: '4rem',
+                         color: '#10b981',
+                         display: 'block',
+                         marginBottom: '0.5rem'
+                       }}>
+                         💰
+                       </span>
+                       <p style={{
+                         color: '#10b981',
+                         fontWeight: 'bold',
+                         fontSize: '2rem',
+                         background: 'linear-gradient(135deg, #10b981, #14b8a6)',
+                         WebkitBackgroundClip: 'text',
+                         WebkitTextFillColor: 'transparent'
+                       }}>
+                         Refund: ${safeToFixed(taxReturn.refund_amount)}
+                       </p>
+                     </div>
+                   ) : (
+                     <div>
+                       <span style={{
+                         fontSize: '4rem',
+                         color: '#ef4444',
+                         display: 'block',
+                         marginBottom: '0.5rem'
+                       }}>
+                         ⚠️
+                       </span>
+                       <p style={{
+                         color: '#ef4444',
+                         fontWeight: 'bold',
+                         fontSize: '2rem',
+                         background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                         WebkitBackgroundClip: 'text',
+                         WebkitTextFillColor: 'transparent'
+                       }}>
+                         Amount Owed: ${safeToFixed(taxReturn.amount_owed)}
+                       </p>
+                     </div>
+                   )}
+                 </div>
+                 
+                 <div style={{ display: 'flex', gap: '1rem' }}>
+                   <button 
+                     onClick={() => {
+                       const refundOrOwed = safeToNumber(taxReturn.refund_amount) > 0 
+                         ? `Refund of ${safeToFixed(taxReturn.refund_amount)}`
+                         : `Amount Owed: ${safeToFixed(taxReturn.amount_owed)}`;
+                       
+                       const returnInfo = `Tax Return Details - ${taxReturn.tax_year}\n\nFinancial Summary:\n• Income: ${safeToNumber(taxReturn.income).toLocaleString()}\n• Deductions: ${safeToNumber(taxReturn.deductions).toLocaleString()}\n• Tax Owed: ${safeToFixed(taxReturn.tax_owed)}\n• Withholdings: ${safeToFixed(taxReturn.withholdings)}\n\nResult: ${refundOrOwed}\n\nStatus: ${taxReturn.status.toUpperCase()}\nFiling Status: ${taxReturn.filing_status || 'single'}`;
+                       
+                       alert(returnInfo);
+                     }}
+                     style={{
+                       flex: 1,
+                       padding: '1rem 1.5rem',
+                       background: 'rgba(107, 114, 128, 0.2)',
+                       border: '2px solid rgba(107, 114, 128, 0.3)',
+                       color: '#e2e8f0',
+                       fontSize: '1rem',
+                       borderRadius: '1rem',
+                       cursor: 'pointer',
+                       fontWeight: '600',
+                       transition: 'all 0.3s ease'
+                     }}
+                   >
+                     👁️ View
+                   </button>
+                   {taxReturn.status === 'draft' && (
+                     <button 
+                       onClick={() => {
+                         const newIncome = prompt(`Edit Income for ${taxReturn.tax_year}:`, taxReturn.income);
+                         const newWithholdings = prompt(`Edit Withholdings for ${taxReturn.tax_year}:`, taxReturn.withholdings);
+                         const newDeductions = prompt(`Edit Deductions for ${taxReturn.tax_year}:`, taxReturn.deductions);
+                         
+                         if (newIncome !== null || newWithholdings !== null || newDeductions !== null) {
+                           const updatedData = {
+                             tax_year: taxReturn.tax_year,
+                             income: safeToNumber(newIncome || taxReturn.income),
+                             withholdings: safeToNumber(newWithholdings || taxReturn.withholdings),
+                             deductions: safeToNumber(newDeductions || taxReturn.deductions),
+                             filing_status_info: {
+                               filing_status: taxReturn.filing_status || 'single'
+                             }
+                           };
+                           
+                           // Update using API service
+                           apiService.updateTaxReturn(taxReturn.id, updatedData)
+                             .then(updatedReturn => {
+                               setTaxReturns(prev => prev.map(tr => 
+                                 tr.id === taxReturn.id ? updatedReturn : tr
+                               ));
+                               alert(`Tax return for ${taxReturn.tax_year} updated successfully!`);
+                             })
+                             .catch(error => {
+                               console.error('Error updating tax return:', error);
+                               alert('Failed to update tax return');
+                             });
+                         }
+                       }}
+                       style={{
+                         flex: 1,
+                         padding: '1rem 1.5rem',
+                         background: 'rgba(59, 130, 246, 0.2)',
+                         border: '2px solid rgba(59, 130, 246, 0.3)',
+                         color: '#93c5fd',
+                         fontSize: '1rem',
+                         borderRadius: '1rem',
+                         cursor: 'pointer',
+                         fontWeight: '600',
+                         transition: 'all 0.3s ease'
+                       }}
+                     >
+                       ✏️ Edit
+                     </button>
+                   )}
+                   <button 
+                     onClick={() => {
+                       const refundOrOwedResult = safeToNumber(taxReturn.refund_amount) > 0 
+                         ? `Refund Amount: ${safeToFixed(taxReturn.refund_amount)}`
+                         : `Amount Owed: ${safeToFixed(taxReturn.amount_owed)}`;
+                       
+                       const pdfContent = `TAX RETURN SUMMARY - ${taxReturn.tax_year}\n\nTaxpayer: ${user?.full_name || 'Your Name'}\nTax Year: ${taxReturn.tax_year}\nFiling Status: ${taxReturn.status.toUpperCase()}\n\nINCOME INFORMATION:\nTotal Income: ${safeToNumber(taxReturn.income).toLocaleString()}\nDeductions: ${safeToNumber(taxReturn.deductions).toLocaleString()}\nTax Owed: ${safeToFixed(taxReturn.tax_owed)}\nWithholdings: ${safeToFixed(taxReturn.withholdings)}\n\nRESULT:\n${refundOrOwedResult}\n\nGenerated by TaxBox.AI\nDate: ${new Date(taxReturn.created_at).toLocaleDateString()}`;
+                       
+                       const blob = new Blob([pdfContent], { type: 'text/plain' });
+                       const url = window.URL.createObjectURL(blob);
+                       const a = document.createElement('a');
+                       a.href = url;
+                       a.download = `tax_return_${taxReturn.tax_year}_${taxReturn.id}.txt`;
+                       document.body.appendChild(a);
+                       a.click();
+                       document.body.removeChild(a);
+                       window.URL.revokeObjectURL(url);
+                       
+                       alert(`Tax return for ${taxReturn.tax_year} downloaded successfully!`);
+                     }}
+                     style={{
+                       padding: '1rem 1.5rem',
+                       background: 'rgba(16, 185, 129, 0.2)',
+                       border: '2px solid rgba(16, 185, 129, 0.3)',
+                       color: '#6ee7b7',
+                       fontSize: '1rem',
+                       borderRadius: '1rem',
+                       cursor: 'pointer',
+                       fontWeight: '600',
+                       transition: 'all 0.3s ease'
+                     }}
+                   >
+                     📥
+                   </button>
+                 </div>
+               </div>
+             ))}
+           </div>
+         )}
+       </div>
+
+       {/* Footer */}
+       <div style={{
+         background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.1))',
+         backdropFilter: 'blur(20px)',
+         border: '1px solid rgba(255, 255, 255, 0.1)',
+         borderRadius: '2rem',
+         padding: '2.5rem',
+         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
+         textAlign: 'center'
+       }}>
+         <p style={{
+           fontSize: '1.125rem',
+           color: '#9ca3af',
+           marginBottom: '0.5rem'
+         }}>
+           🚀 Powered by TaxBox.AI - The Future of Tax Filing
+         </p>
+         <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+           Built with ❤️ using React and modern web technologies
+         </p>
+         {user && (
+           <p style={{ fontSize: '0.75rem', color: '#4b5563' }}>
+             Logged in as: {user.email || user.full_name} • User ID: {user.id}
+           </p>
+         )}
+       </div>
+     </div>
+
+     {/* CSS Animations */}
+     <style dangerouslySetInnerHTML={{
+       __html: `
+         @keyframes spin {
+           0% { transform: rotate(0deg); }
+           100% { transform: rotate(360deg); }
+         }
+         
+         @keyframes pulse {
+           0%, 100% { opacity: 1; }
+           50% { opacity: 0.7; }
+         }
+         
+         button:hover {
+           transform: translateY(-2px) !important;
+           box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important;
+         }
+         
+         input:focus, select:focus {
+           outline: none !important;
+           border-color: rgba(139, 92, 246, 0.6) !important;
+           box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2) !important;
+         }
+         
+         * {
+           box-sizing: border-box;
+         }
+       `
+     }} />
+   </div>
+ );
 }
 
 export default Dashboard;
