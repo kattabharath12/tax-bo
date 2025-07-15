@@ -262,12 +262,12 @@ function Dashboard() {
       try {
         console.log('Loading user profile and data...');
         
-        // Load user profile (this will prompt for user info if not available)
+        // Load user profile
         const userProfile = await apiService.getUserProfile();
         console.log('User profile loaded:', userProfile);
         setUser(userProfile);
 
-        // Load tax returns and documents in parallel (both will be empty initially)
+        // Load tax returns and documents in parallel
         setLoading(true);
         
         const [taxReturnsData, documentsData] = await Promise.all([
@@ -284,17 +284,15 @@ function Dashboard() {
       } catch (err) {
         console.error('Error loading dashboard data:', err);
         
-        if (err.message?.includes('No authentication token found')) {
-          setError('Please log in to access your dashboard. For demo purposes, please set a token in localStorage.');
-          // Set a demo token for testing
-          localStorage.setItem('token', 'demo_token_123');
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
+        if (err.message?.includes('No authentication token found') || err.message?.includes('401')) {
+          setError('Please log in to access your dashboard.');
+          // For demo purposes, you can uncomment the next lines to auto-set a token
+          // localStorage.setItem('token', 'demo_token_123');
+          // setTimeout(() => window.location.reload(), 2000);
         } else {
           setError('Failed to load dashboard data. Please try refreshing the page.');
           
-          // Fallback: set minimal user data
+          // Fallback: set minimal user data for development
           setUser({ full_name: 'User', email: 'user@example.com', id: 'demo_user' });
         }
       } finally {
