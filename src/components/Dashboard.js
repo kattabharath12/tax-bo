@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
-// CSS-based icon components
+const API_BASE_URL = 'https://tax-box-production.up.railway.app';
+
+// Only the icons we actually use
 const Upload = ({ className }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -60,8 +62,6 @@ const CheckCircle = ({ className }) => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
 );
-
-const API_BASE_URL = 'https://tax-box-production.up.railway.app';
 
 // Utility function for API calls
 const apiCall = async (endpoint, options = {}) => {
@@ -426,7 +426,6 @@ const TaxReturnForm = ({ onSubmit, filingStatusOptions, standardDeductions }) =>
         </div>
       )}
 
-      {/* Spouse Information for Married Filing Jointly */}
       {formData.filing_status_info.filing_status === 'married_jointly' && (
         <div className="border-t pt-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Spouse Information</h3>
@@ -573,7 +572,6 @@ const Dashboard = () => {
           amount: amount
         }),
       });
-      // Refresh tax returns to update payment status
       const updatedTaxReturns = await apiCall('/api/tax-returns');
       setTaxReturns(updatedTaxReturns);
     } catch (err) {
@@ -594,7 +592,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -616,7 +613,6 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* Navigation */}
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
@@ -643,7 +639,6 @@ const Dashboard = () => {
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'dashboard' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -826,7 +821,6 @@ const App = () => {
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (token) {
-      // Verify token is still valid
       apiCall('/api/users/me')
         .then(() => setIsAuthenticated(true))
         .catch(() => {
